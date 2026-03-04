@@ -1,4 +1,4 @@
-﻿# AGENT.md - Contexto del Proyecto CONTROL-DE-ACCESO-CIDE
+# AGENT.md - Contexto del Proyecto CONTROL-DE-ACCESO-CIDE
 
 ## Objetivo del sistema
 Backend academico para control de acceso de estudiantes mediante QR, con registro de ENTRADA/SALIDA en PostgreSQL.
@@ -140,3 +140,9 @@ GET http://localhost:3000/health
 ## Decision log rapido
 - Arquitectura actual prioriza simplicidad para MVP academico.
 - El siguiente salto de calidad debe enfocarse en consistencia de datos, seguridad de configuracion y pruebas.
+
+## Feature agregado: Estudiantes dentro del campus
+- Endpoint: `GET /movimientos/dentro-campus`.
+- Definicion operacional: estudiante dentro = ultimo movimiento `ENTRADA`.
+- Respuesta: `{ count, estudiantes[] }` con detalle de estudiante, moto y fecha del ultimo movimiento.
+- Query basada en SQL con ultimo movimiento por estudiante y filtro por `ENTRADA`.

@@ -1,6 +1,6 @@
 const pool = require("../config/database");
 
-// Si llega URL completa, extrae el último segmento como qr_uid
+// Si llega URL completa, extrae el ultimo segmento como qr_uid
 function extraerQrUid(input) {
   if (!input) return null;
 
@@ -33,7 +33,7 @@ async function registrarMovimiento(req, res) {
 
     const estudiante = est.rows[0];
 
-    // 2) Buscar último movimiento (tu columna es 'fecha')
+    // 2) Buscar ultimo movimiento (tu columna es 'fecha')
     const last = await pool.query(
       "SELECT tipo FROM movimientos WHERE estudiante_id = $1 ORDER BY fecha DESC LIMIT 1",
       [estudiante.id]
@@ -61,4 +61,44 @@ async function registrarMovimiento(req, res) {
   }
 }
 
-module.exports = { registrarMovimiento };
+async function listarDentroCampus(req, res) {
+  try {
+    const result = await pool.query(
+      `
+      WITH ultimo_movimiento AS (
+        SELECT DISTINCT ON (m.estudiante_id)
+          m.estudiante_id,
+          m.tipo,
+          m.fecha
+        FROM movimientos m
+        ORDER BY m.estudiante_id, m.fecha DESC, m.id DESC
+      )
+      SELECT
+        e.id AS estudiante_id,
+        e.documento,
+        e.nombre,
+        e.carrera,
+        e.vigencia,
+        moto.placa,
+        moto.color,
+        um.tipo AS ultimo_movimiento,
+        um.fecha AS fecha_ultimo_movimiento
+      FROM ultimo_movimiento um
+      JOIN estudiantes e ON e.id = um.estudiante_id
+      LEFT JOIN motocicletas moto ON moto.estudiante_id = e.id
+      WHERE um.tipo = 'ENTRADA'
+      ORDER BY um.fecha DESC
+      `
+    );
+
+    return res.status(200).json({
+      count: result.rows.length,
+      estudiantes: result.rows,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Error consultando estudiantes dentro del campus" });
+  }
+}
+
+module.exports = { registrarMovimiento, listarDentroCampus };
