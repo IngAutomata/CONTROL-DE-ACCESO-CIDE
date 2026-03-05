@@ -8,8 +8,12 @@ const pool = new Pool({
   port: 5432,
 });
 
-pool.connect()
-  .then(() => console.log("✅ Conectado a PostgreSQL"))
-  .catch(err => console.error("❌ Error conexión DB:", err));
+pool
+  .connect()
+  .then((client) => {
+    console.log("Conectado a PostgreSQL");
+    client.release();
+  })
+  .catch((err) => console.error("Error conexion DB:", err));
 
 module.exports = pool;

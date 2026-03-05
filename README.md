@@ -52,6 +52,7 @@ backend
 ```powershell
 Invoke-RestMethod -Method POST -Uri "http://localhost:3000/estudiantes/primer-ingreso" -ContentType "application/json" -Body '{
   "documento":"123456",
+  "qr_uid":"NjA5MTgy",
   "nombre":"Luis Ramon",
   "carrera":"Ingenieria Mecatronica",
   "vigencia":true,
@@ -109,3 +110,12 @@ QR carnet estudiante
         -> Backend Node.js
         -> PostgreSQL
         -> Registro de acceso
+
+### Si ya tenias la tabla `estudiantes` creada
+Ejecuta esta migracion para alinear el flujo QR:
+```sql
+ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS qr_uid VARCHAR(120);
+UPDATE estudiantes SET qr_uid = documento WHERE qr_uid IS NULL;
+ALTER TABLE estudiantes ALTER COLUMN qr_uid SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS estudiantes_qr_uid_key ON estudiantes(qr_uid);
+```

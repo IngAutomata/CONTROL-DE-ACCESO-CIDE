@@ -1,55 +1,54 @@
 # AGENT.md - Contexto del Proyecto CONTROL-DE-ACCESO-CIDE
 
-## Objetivo del sistema
+## Objetivo
 Backend academico para control de acceso de estudiantes mediante QR, con registro de ENTRADA/SALIDA en PostgreSQL.
 
-## Stack actual
-- Runtime: Node.js (CommonJS)
-- Framework HTTP: Express 5
-- Base de datos: PostgreSQL (`pg`)
-- Estructura: backend monolitico simple por capas (routes -> controllers -> DB)
+## Stack
+- Node.js (CommonJS)
+- Express 5
+- PostgreSQL (`pg`)
 
-## Estructura del repositorio
+## Estructura
 ```text
 CONTROL-DE-ACCESO-CIDE/
 |- README.md
-|- .gitignore
-`- backend/
-   |- server.js
-   |- package.json
-   |- config/
-   |  `- database.js
-   |- controllers/
-   |  |- estudiantes.controller.js
-   |  `- movimientos.controller.js
-   |- routes/
-   |  |- estudiantes.routes.js
-   |  `- movimientos.routes.js
-   `- database/
-      `- schema.sql
+|- backend/
+|  |- server.js
+|  |- package.json
+|  |- config/
+|  |  `- database.js
+|  |- controllers/
+|  |  |- estudiantes.controller.js
+|  |  `- movimientos.controller.js
+|  |- routes/
+|  |  |- estudiantes.routes.js
+|  |  `- movimientos.routes.js
+|  |- database/
+|  |  `- schema.sql
+|  `- tests/
+|     |- movimientos.controller.test.js
+|     `- estudiantes.controller.test.js
+`- .gitignore
 ```
 
-## Arquitectura (como funciona hoy)
+## Arquitectura
 1. `server.js` levanta Express en puerto `3000`.
-2. `server.js` monta rutas:
+2. Rutas:
    - `/estudiantes` -> `routes/estudiantes.routes.js`
    - `/movimientos` -> `routes/movimientos.routes.js`
-3. Las rutas llaman controladores.
-4. Los controladores ejecutan SQL directo con `pool.query(...)`.
+3. Controladores ejecutan SQL directo con `pool.query(...)`.
 
-## Endpoints implementados
+## Endpoints
 ### Salud
 - `GET /`
-  - Mensaje simple de servidor.
 - `GET /health`
-  - Valida conectividad a DB con `SELECT NOW()`.
 
 ### Estudiantes
-- `GET /estudiantes/`
-  - Ruta de prueba.
+- `GET /estudiantes/` (ruta de prueba)
 - `POST /estudiantes/primer-ingreso`
   - Body esperado:
     - `documento` (string)
+    - `qr_uid` (string)
     - `nombre` (string)
     - `carrera` (string)
     - `vigencia` (boolean)
@@ -57,23 +56,23 @@ CONTROL-DE-ACCESO-CIDE/
     - `color` (string)
   - Comportamiento:
     - Upsert de estudiante por `documento`.
+    - Actualiza `qr_uid` en el upsert.
     - Upsert de motocicleta por `estudiante_id`.
 
 ### Movimientos
 - `POST /movimientos/registrar`
-  - Acepta:
-    - `qr_uid` o
-    - `qr_url` (extrae el ultimo segmento como UID)
-  - Comportamiento:
-    - Busca estudiante por `qr_uid`.
-    - Lee ultimo movimiento.
-    - Alterna `ENTRADA` / `SALIDA`.
-    - Inserta nuevo movimiento.
+  - Acepta `qr_uid` o `qr_url`.
+  - Busca estudiante por `estudiantes.qr_uid`.
+  - Alterna `ENTRADA` / `SALIDA` segun ultimo movimiento.
+- `GET /movimientos/dentro-campus`
+  - Lista estudiantes cuyo ultimo movimiento es `ENTRADA`.
+  - Respuesta: `{ count, estudiantes[] }`.
 
-## Modelo de datos (schema.sql)
+## Modelo de datos
 ### `estudiantes`
 - `id` PK
 - `documento` UNIQUE
+- `qr_uid` UNIQUE
 - `nombre`
 - `carrera`
 - `vigencia`
@@ -81,7 +80,7 @@ CONTROL-DE-ACCESO-CIDE/
 
 ### `motocicletas`
 - `id` PK
-- `estudiante_id` UNIQUE FK -> `estudiantes.id` (1:1 MVP)
+- `estudiante_id` UNIQUE FK -> `estudiantes.id`
 - `placa`
 - `color`
 - `created_at`
@@ -92,57 +91,25 @@ CONTROL-DE-ACCESO-CIDE/
 - `tipo` CHECK (`ENTRADA`, `SALIDA`)
 - `fecha`
 
-## Flujo funcional principal
-1. Registrar/actualizar estudiante y su moto (`primer-ingreso`).
-2. Escanear QR en porteria (`movimientos/registrar`).
-3. Generar movimiento segun ultimo estado (entrada/salida alternada).
+## Flujo principal
+1. Registrar/actualizar estudiante + moto (`primer-ingreso`).
+2. Escanear QR (`movimientos/registrar`).
+3. Consultar quienes estan dentro (`movimientos/dentro-campus`).
 
-## Observaciones tecnicas importantes (estado actual)
-1. `controllers/estudiantes.controller.js` tiene una inconsistencia estructural:
-   - Define `obtenerPorDocumento` dentro de `primerIngreso`.
-   - Exporta `module.exports` dos veces.
-   - Resultado probable: `obtenerPorDocumento` no queda realmente expuesto/usable.
-2. `movimientos.controller.js` consulta `estudiantes.qr_uid`, pero `schema.sql` no define la columna `qr_uid`.
-   - Si la DB se crea solo con este schema, `POST /movimientos/registrar` fallara al buscar por QR.
-3. `config/database.js` contiene credenciales hardcodeadas.
-   - Recomendado: mover a variables de entorno (`.env`).
-4. No hay capa de servicios, validacion formal (Joi/Zod) ni tests automatizados.
-5. El `README.md` refleja bien el flujo general, pero no documenta limitaciones anteriores.
-
-## Convenciones para nuevos features
-Para mantener coherencia al extender el sistema:
-1. Rutas en `routes/*.routes.js`.
-2. Logica SQL/negocio en `controllers/*.controller.js`.
-3. Cambios de base de datos versionados en `backend/database/` (idealmente migraciones).
-4. Actualizar siempre:
-   - `README.md` (uso funcional)
-   - este `AGENT.md` (contexto tecnico)
-
-## Prioridad sugerida antes de nuevos features
-1. Corregir `estudiantes.controller.js` (estructura y exportaciones).
-2. Alinear modelo QR:
-   - agregar `qr_uid` en `schema.sql` y en `primer-ingreso`, o
-   - cambiar `movimientos/registrar` para otra llave existente.
-3. Externalizar credenciales DB por entorno.
-4. Agregar tests de integracion minimos para endpoints criticos.
-
-## Comandos base
-Desde `backend/`:
-```bash
-npm install
-node server.js
-```
-Health check:
-```bash
-GET http://localhost:3000/health
+## Migracion para entornos existentes
+Si la tabla `estudiantes` ya existia sin `qr_uid`, aplicar:
+```sql
+ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS qr_uid VARCHAR(120);
+UPDATE estudiantes SET qr_uid = documento WHERE qr_uid IS NULL;
+ALTER TABLE estudiantes ALTER COLUMN qr_uid SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS estudiantes_qr_uid_key ON estudiantes(qr_uid);
 ```
 
-## Decision log rapido
-- Arquitectura actual prioriza simplicidad para MVP academico.
-- El siguiente salto de calidad debe enfocarse en consistencia de datos, seguridad de configuracion y pruebas.
+## Calidad actual
+- Tests de controlador disponibles en `backend/tests/`.
+- Script de tests: `npm test` (desde `backend/`).
 
-## Feature agregado: Estudiantes dentro del campus
-- Endpoint: `GET /movimientos/dentro-campus`.
-- Definicion operacional: estudiante dentro = ultimo movimiento `ENTRADA`.
-- Respuesta: `{ count, estudiantes[] }` con detalle de estudiante, moto y fecha del ultimo movimiento.
-- Query basada en SQL con ultimo movimiento por estudiante y filtro por `ENTRADA`.
+## Riesgos pendientes
+1. Credenciales DB hardcodeadas en `config/database.js`.
+2. No hay tests de integracion reales contra PostgreSQL.
+3. No hay validacion formal de payload (Joi/Zod).
