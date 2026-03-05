@@ -1,10 +1,18 @@
 const express = require("express");
 const app = express();
+
 const pool = require("./config/database");
+
+const estudiantesRoutes = require("./routes/estudiantes.routes");
+const movimientosRoutes = require("./routes/movimientos.routes");
+
 const PORT = 3000;
 
-app.use(express.json());const estudiantesRoutes = require("./routes/estudiantes.routes");
+app.use(express.json());
+
+// Rutas
 app.use("/estudiantes", estudiantesRoutes);
+app.use("/movimientos", movimientosRoutes);
 
 // Ruta base
 app.get("/", (req, res) => {

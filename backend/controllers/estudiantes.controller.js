@@ -1,10 +1,10 @@
 const pool = require("../config/database");
 
 async function primerIngreso(req, res) {
-  const { documento, nombre, carrera, vigencia, placa, color } = req.body;
+  const { documento, qr_uid, nombre, carrera, vigencia, placa, color } = req.body;
 
-  // Validación mínima
-  if (!documento || !nombre || !carrera || typeof vigencia !== "boolean" || !placa || !color) {
+  // Validacion minima
+  if (!documento || !qr_uid || !nombre || !carrera || typeof vigencia !== "boolean" || !placa || !color) {
     return res.status(400).json({ error: "Faltan datos requeridos o vigencia no es boolean" });
   }
 
@@ -14,13 +14,13 @@ async function primerIngreso(req, res) {
     // Upsert estudiante
     const estudianteResult = await pool.query(
       `
-      INSERT INTO estudiantes (documento, nombre, carrera, vigencia)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO estudiantes (documento, qr_uid, nombre, carrera, vigencia)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (documento)
-      DO UPDATE SET nombre = EXCLUDED.nombre, carrera = EXCLUDED.carrera, vigencia = EXCLUDED.vigencia
-      RETURNING id, documento, nombre, carrera, vigencia
+      DO UPDATE SET qr_uid = EXCLUDED.qr_uid, nombre = EXCLUDED.nombre, carrera = EXCLUDED.carrera, vigencia = EXCLUDED.vigencia
+      RETURNING id, documento, qr_uid, nombre, carrera, vigencia
       `,
-      [documento, nombre, carrera, vigencia]
+      [documento, qr_uid, nombre, carrera, vigencia]
     );
 
     const estudiante = estudianteResult.rows[0];
@@ -49,4 +49,37 @@ async function primerIngreso(req, res) {
   }
 }
 
-module.exports = { primerIngreso };
+async function obtenerPorDocumento(req, res) {
+  const { documento } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        e.id AS estudiante_id,
+        e.documento,
+        e.qr_uid,
+        e.nombre,
+        e.carrera,
+        e.vigencia,
+        m.placa,
+        m.color
+      FROM estudiantes e
+      LEFT JOIN motocicletas m ON m.estudiante_id = e.id
+      WHERE e.documento = $1
+      `,
+      [documento]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Error consultando estudiante" });
+  }
+}
+
+module.exports = { primerIngreso, obtenerPorDocumento };
