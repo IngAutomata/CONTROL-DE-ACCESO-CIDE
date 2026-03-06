@@ -31,6 +31,20 @@ backend
 ### 3. Instalar dependencias
 `npm install`
 
+### 4. Configurar variables de entorno
+Copia el archivo de ejemplo y ajusta tu password real de PostgreSQL:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Variables esperadas:
+- `DB_USER`
+- `DB_HOST`
+- `DB_NAME`
+- `DB_PASSWORD`
+- `DB_PORT`
+
 ## Base de datos
 ### Crear la base de datos
 `CREATE DATABASE control_acceso_cide;`
@@ -43,6 +57,10 @@ backend
 
 ### Health check
 `http://localhost:3000/health`
+
+## Pruebas
+- Unitarias: `npm test`
+- Integracion: `npm run test:integration`
 
 ## Registro de estudiante
 ### Endpoint
@@ -119,3 +137,19 @@ UPDATE estudiantes SET qr_uid = documento WHERE qr_uid IS NULL;
 ALTER TABLE estudiantes ALTER COLUMN qr_uid SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS estudiantes_qr_uid_key ON estudiantes(qr_uid);
 ```
+
+## Roles y permisos
+Roles disponibles:
+- `ADMIN`: gestiona usuarios/reportes.
+- `GUARDA`: registra `primer-ingreso` y `movimientos`.
+- `CONSULTA`: rol de lectura.
+
+Header requerido para rutas protegidas:
+- `x-role: ADMIN | GUARDA | CONSULTA`
+
+Matriz aplicada en esta rama:
+- `POST /estudiantes/primer-ingreso` -> `GUARDA`
+- `POST /movimientos/registrar` -> `GUARDA`
+- `GET /movimientos/dentro-campus` -> `GUARDA`, `ADMIN`
+- `GET /admin/*` -> `ADMIN`
+- `GET /estudiantes/:documento` -> `ADMIN`, `GUARDA`, `CONSULTA`

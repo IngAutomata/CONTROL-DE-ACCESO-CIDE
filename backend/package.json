@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
+    "test": "node tests/roles.middleware.test.js && node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
     "test:integration": "node tests/movimientos.dentro-campus.integration.test.js",
     "test:all": "npm test && npm run test:integration"
   },
@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "pg": "^8.19.0"
   }
