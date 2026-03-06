@@ -39,6 +39,20 @@ Si agregas o modificas funcionalidad de auth, valida que queden declaradas en `b
 ### 3. Instalar dependencias
 `npm install`
 
+### 4. Configurar credenciales (.env)
+Crea `backend/.env` desde el ejemplo y coloca tu password real de PostgreSQL:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Variables usadas por el backend:
+- `DB_USER`
+- `DB_HOST`
+- `DB_NAME`
+- `DB_PASSWORD`
+- `DB_PORT`
+
 ## Base de datos
 ### Crear la base de datos
 `CREATE DATABASE control_acceso_cide;`

@@ -16,18 +16,26 @@ function createRes() {
   };
 }
 
-function loadControllerWithQuery(mockQueryImpl) {
+function loadControllerWithDb(mockQueryImpl) {
   const dbPath = path.resolve(__dirname, "../config/database.js");
   const controllerPath = path.resolve(__dirname, "../controllers/estudiantes.controller.js");
 
   delete require.cache[dbPath];
   delete require.cache[controllerPath];
 
+  const client = {
+    query: mockQueryImpl,
+    release() {},
+  };
+
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { query: mockQueryImpl },
+    exports: {
+      query: mockQueryImpl,
+      connect: async () => client,
+    },
   };
 
   return require(controllerPath);
@@ -46,7 +54,7 @@ async function runTest(name, fn) {
 
 (async () => {
   await runTest("primerIngreso exige qr_uid", async () => {
-    const { primerIngreso } = loadControllerWithQuery(async () => {
+    const { primerIngreso } = loadControllerWithDb(async () => {
       throw new Error("No DB call expected");
     });
 
@@ -70,7 +78,7 @@ async function runTest(name, fn) {
 
   await runTest("primerIngreso hace upsert incluyendo qr_uid", async () => {
     const calls = [];
-    const { primerIngreso } = loadControllerWithQuery(async (sql, params) => {
+    const { primerIngreso } = loadControllerWithDb(async (sql, params) => {
       calls.push({ sql, params });
 
       if (/BEGIN/.test(sql)) return { rows: [] };

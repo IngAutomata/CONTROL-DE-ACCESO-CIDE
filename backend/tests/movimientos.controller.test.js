@@ -16,7 +16,7 @@ function createRes() {
   };
 }
 
-function loadControllerWithQuery(mockQueryImpl) {
+function loadControllerWithDb(poolMock) {
   const dbPath = path.resolve(__dirname, "../config/database.js");
   const controllerPath = path.resolve(__dirname, "../controllers/movimientos.controller.js");
 
@@ -27,7 +27,7 @@ function loadControllerWithQuery(mockQueryImpl) {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: { query: mockQueryImpl },
+    exports: poolMock,
   };
 
   return require(controllerPath);
@@ -45,6 +45,83 @@ async function runTest(name, fn) {
 }
 
 (async () => {
+  await runTest("registrarMovimiento exige qr_uid o qr_url", async () => {
+    const client = {
+      query: async () => ({ rows: [] }),
+      release() {},
+    };
+
+    const { registrarMovimiento } = loadControllerWithDb({
+      connect: async () => client,
+      query: async () => ({ rows: [] }),
+    });
+
+    const req = { body: {} };
+    const res = createRes();
+
+    await registrarMovimiento(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "Falta qr_uid o qr_url" });
+  });
+
+  await runTest("registrarMovimiento alterna a SALIDA cuando ultimo movimiento fue ENTRADA", async () => {
+    const calls = [];
+    const client = {
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+
+        if (/BEGIN/.test(sql)) return { rows: [] };
+        if (/FROM estudiantes/i.test(sql)) {
+          return {
+            rows: [
+              {
+                id: 10,
+                documento: "123",
+                nombre: "Luis",
+                carrera: "Ing",
+                vigencia: true,
+              },
+            ],
+          };
+        }
+        if (/SELECT tipo FROM movimientos/i.test(sql)) {
+          return { rows: [{ tipo: "ENTRADA" }] };
+        }
+        if (/INSERT INTO movimientos/i.test(sql)) {
+          return { rows: [{ id: 77, tipo: "SALIDA", fecha: "2026-03-05T15:00:00.000Z" }] };
+        }
+        if (/COMMIT/.test(sql)) return { rows: [] };
+
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const { registrarMovimiento } = loadControllerWithDb({
+      connect: async () => client,
+      query: async () => ({ rows: [] }),
+    });
+
+    const req = {
+      body: {
+        qr_url: "https://cide.edu/qr/QR001?source=lector#abc",
+      },
+    };
+    const res = createRes();
+
+    await registrarMovimiento(req, res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.movimiento.tipo, "SALIDA");
+
+    const studentLookup = calls.find((c) => /FROM estudiantes/i.test(c.sql));
+    assert.deepEqual(studentLookup.params, ["QR001"]);
+
+    const insertMov = calls.find((c) => /INSERT INTO movimientos/i.test(c.sql));
+    assert.deepEqual(insertMov.params, [10, "SALIDA"]);
+  });
+
   await runTest("listarDentroCampus retorna 200 con count y estudiantes", async () => {
     const fakeRows = [
       {
@@ -61,9 +138,11 @@ async function runTest(name, fn) {
     ];
 
     let capturedSql = "";
-    const { listarDentroCampus } = loadControllerWithQuery(async (sql) => {
-      capturedSql = sql;
-      return { rows: fakeRows };
+    const { listarDentroCampus } = loadControllerWithDb({
+      query: async (sql) => {
+        capturedSql = sql;
+        return { rows: fakeRows };
+      },
     });
 
     const req = {};
@@ -81,7 +160,7 @@ async function runTest(name, fn) {
   });
 
   await runTest("listarDentroCampus retorna lista vacia cuando no hay estudiantes dentro", async () => {
-    const { listarDentroCampus } = loadControllerWithQuery(async () => ({ rows: [] }));
+    const { listarDentroCampus } = loadControllerWithDb({ query: async () => ({ rows: [] }) });
 
     const req = {};
     const res = createRes();
@@ -96,8 +175,10 @@ async function runTest(name, fn) {
   });
 
   await runTest("listarDentroCampus retorna 500 cuando falla la consulta", async () => {
-    const { listarDentroCampus } = loadControllerWithQuery(async () => {
-      throw new Error("DB down");
+    const { listarDentroCampus } = loadControllerWithDb({
+      query: async () => {
+        throw new Error("DB down");
+      },
     });
 
     const req = {};
