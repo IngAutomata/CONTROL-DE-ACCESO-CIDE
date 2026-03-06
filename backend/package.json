@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
+    "test": "node tests/roles.middleware.test.js && node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
     "test:integration": "node tests/movimientos.dentro-campus.integration.test.js",
     "test:all": "npm test && npm run test:integration"
   },
