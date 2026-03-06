@@ -2,14 +2,12 @@ const express = require("express");
 const router = express.Router();
 
 const { primerIngreso, obtenerPorDocumento } = require("../controllers/estudiantes.controller");
+const { requireRole } = require("../middleware/requireRole");
+const { ROLES } = require("../constants/roles");
 
-// ✅ Ruta de prueba
-router.get("/", (req, res) => res.send("Rutas estudiantes OK"));
+router.get("/", (_req, res) => res.send("Rutas estudiantes OK"));
 
-// ✅ Tu endpoint principal
-router.post("/primer-ingreso", primerIngreso);
-router.get("/:documento", obtenerPorDocumento);
-
-
+router.post("/primer-ingreso", requireRole(ROLES.GUARDA), primerIngreso);
+router.get("/:documento", requireRole([ROLES.ADMIN, ROLES.GUARDA, ROLES.CONSULTA]), obtenerPorDocumento);
 
 module.exports = router;
