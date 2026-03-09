@@ -81,6 +81,11 @@ Roles soportados:
 - `GET /admin/reportes` (ADMIN)
 - `GET /admin/usuarios` (ADMIN)
 
+## Estado actual
+- Flujo protegido por JWT en rutas sensibles.
+- Roles validados desde el token del usuario autenticado.
+- Controladores con manejo de errores y transacciones para operaciones criticas.
+
 ## Pruebas
 ```bash
 npm test
