@@ -16,7 +16,7 @@ const ROLES_LECTURA = [ROLES.ADMIN, ROLES.GUARDA, ROLES.CONSULTA];
 router.use(authMiddleware);
 
 router.get("/", requireRole(ROLES_LECTURA), listarEstudiantes);
-router.post("/primer-ingreso", requireRole(ROLES.GUARDA), primerIngreso);
+router.post("/primer-ingreso", requireRole(ROLES.ADMIN, ROLES.GUARDA), primerIngreso);
 router.get("/documento/:documento", requireRole(ROLES_LECTURA), obtenerPorDocumento);
 router.get("/:id", requireRole(ROLES_LECTURA), obtenerPorId);
 
