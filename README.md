@@ -46,6 +46,16 @@ Ejecutar schema:
 psql -U postgres -d control_acceso_cide -f database/schema.sql
 ```
 
+Seed de usuarios base:
+```bash
+node database/seed.js
+```
+
+Usuarios creados/actualizados por el seed:
+- `admin / Admin123!` -> `ADMIN`
+- `guarda / Guarda123!` -> `GUARDA`
+- `consulta / Consulta123!` -> `CONSULTA`
+
 ## Ejecutar
 ```bash
 npm start
@@ -60,7 +70,7 @@ Body JSON:
 ```json
 {
   "username": "admin",
-  "password": "Admin123*"
+  "password": "Admin123!"
 }
 ```
 
@@ -95,26 +105,29 @@ Roles soportados:
 - `CONSULTA`
 
 ## Endpoints
+Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
+
 ### Estudiantes
-- `POST /estudiantes/primer-ingreso` (GUARDA)
-- `GET /estudiantes` (ADMIN/GUARDA/CONSULTA)
-- `GET /estudiantes/:id` (ADMIN/GUARDA/CONSULTA)
-- `GET /estudiantes/documento/:documento` (ADMIN/GUARDA/CONSULTA)
+- `POST /estudiantes/primer-ingreso` (`ADMIN` o `GUARDA`)
+- `GET /estudiantes` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /estudiantes/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /estudiantes/documento/:documento` (`ADMIN`, `GUARDA`, `CONSULTA`)
 
 ### Movimientos
-- `POST /movimientos/registrar` (GUARDA)
-- `GET /movimientos` (ADMIN/GUARDA/CONSULTA)
-- `GET /movimientos/estudiante/:id` (ADMIN/GUARDA/CONSULTA)
-- `GET /movimientos/dentro-campus` (ADMIN/GUARDA)
+- `POST /movimientos/registrar` (`ADMIN` o `GUARDA`)
+- `GET /movimientos` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /movimientos/estudiante/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /movimientos/dentro-campus` (`ADMIN` o `GUARDA`)
 
 ### Admin
-- `GET /admin/reportes` (ADMIN)
-- `GET /admin/usuarios` (ADMIN)
+- `GET /admin/reportes` (`ADMIN`)
+- `GET /admin/usuarios` (`ADMIN`)
 
 ## Estado actual
 - Flujo protegido por JWT en rutas sensibles.
 - Roles validados desde el token del usuario autenticado.
 - Controladores con manejo de errores y transacciones para operaciones criticas.
+- El seed corrige usuarios base existentes para evitar roles heredados inconsistentes.
 
 ## Pruebas
 ```bash
@@ -123,5 +136,8 @@ npm run test:integration
 npm run test:all
 ```
 
+`test:integration` requiere PostgreSQL disponible, `DB_PASSWORD` y `JWT_SECRET` configurados.
+
 ## Script de prueba manual
-- `bash test-endpoints.sh`
+- PowerShell: `./test-endpoints.ps1`
+- Bash: `bash test-endpoints.sh`
