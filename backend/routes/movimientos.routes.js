@@ -1,11 +1,23 @@
 const express = require("express");
 const router = express.Router();
 
-const { registrarMovimiento, listarDentroCampus } = require("../controllers/movimientos.controller");
+const {
+  registrarMovimiento,
+  listarMovimientos,
+  listarMovimientosPorEstudiante,
+  listarDentroCampus,
+} = require("../controllers/movimientos.controller");
+const authMiddleware = require("../middlewares/auth.middleware");
 const { requireRole } = require("../middleware/requireRole");
 const { ROLES } = require("../constants/roles");
 
-router.post("/registrar", requireRole(ROLES.GUARDA), registrarMovimiento);
-router.get("/dentro-campus", requireRole([ROLES.GUARDA, ROLES.ADMIN]), listarDentroCampus);
+const ROLES_LECTURA = [ROLES.ADMIN, ROLES.GUARDA, ROLES.CONSULTA];
+
+router.use(authMiddleware);
+
+router.post("/registrar", requireRole(ROLES.ADMIN, ROLES.GUARDA), registrarMovimiento);
+router.get("/", requireRole(ROLES_LECTURA), listarMovimientos);
+router.get("/estudiante/:id", requireRole(ROLES_LECTURA), listarMovimientosPorEstudiante);
+router.get("/dentro-campus", requireRole(ROLES.ADMIN, ROLES.GUARDA), listarDentroCampus);
 
 module.exports = router;

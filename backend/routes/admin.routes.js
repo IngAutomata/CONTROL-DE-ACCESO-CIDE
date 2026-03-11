@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
+const authMiddleware = require("../middlewares/auth.middleware");
 const { requireRole } = require("../middleware/requireRole");
 const { ROLES } = require("../constants/roles");
 
+router.use(authMiddleware);
 router.use(requireRole(ROLES.ADMIN));
 
 router.get("/reportes", (_req, res) => {

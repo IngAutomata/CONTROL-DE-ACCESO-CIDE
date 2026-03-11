@@ -1,254 +1,70 @@
 {
-	"info": {
-		"name": "Control de Acceso CIDE - API Tests",
-		"description": "Colección de pruebas para los endpoints del backend",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "1. Health Check",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/health",
-					"host": ["{{base_url}}"],
-					"path": ["health"]
-				},
-				"description": "Verificar que el servidor está funcionando y conectado a BD"
-			},
-			"response": []
-		},
-		{
-			"name": "2. Login - Admin",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin123!\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/auth/login",
-					"host": ["{{base_url}}"],
-					"path": ["auth", "login"]
-				},
-				"description": "Login con usuario admin para obtener token JWT"
-			},
-			"response": []
-		},
-		{
-			"name": "3. Login - Staff",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"username\": \"staff\",\n  \"password\": \"Staff123!\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/auth/login",
-					"host": ["{{base_url}}"],
-					"path": ["auth", "login"]
-				},
-				"description": "Login con usuario staff"
-			},
-			"response": []
-		},
-		{
-			"name": "4. Login - Test User",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"username\": \"test\",\n  \"password\": \"Test123!\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/auth/login",
-					"host": ["{{base_url}}"],
-					"path": ["auth", "login"]
-				},
-				"description": "Login con usuario de prueba"
-			},
-			"response": []
-		},
-		{
-			"name": "5. Login - Credenciales inválidas",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"incorrecta\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/auth/login",
-					"host": ["{{base_url}}"],
-					"path": ["auth", "login"]
-				},
-				"description": "Debe retornar 401 - Credenciales inválidas"
-			},
-			"response": []
-		},
-		{
-			"name": "6. Registrar primer ingreso de estudiante",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{jwt_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"documento\": \"102030405\",\n  \"qr_uid\": \"QR12345\",\n  \"nombre\": \"Luis Ramón\",\n  \"carrera\": \"Ingeniería Mecatrónica\",\n  \"vigencia\": true,\n  \"placa\": \"ABC-123\",\n  \"color\": \"Negro\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/estudiantes/primer-ingreso",
-					"host": ["{{base_url}}"],
-					"path": ["estudiantes", "primer-ingreso"]
-				},
-				"description": "Registrar primer ingreso de un estudiante con su motocicleta"
-			},
-			"response": []
-		},
-		{
-			"name": "7. Registrar otro estudiante",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{jwt_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"documento\": \"103040506\",\n  \"qr_uid\": \"QR67890\",\n  \"nombre\": \"María González\",\n  \"carrera\": \"Ingeniería de Sistemas\",\n  \"vigencia\": true,\n  \"placa\": \"XYZ-789\",\n  \"color\": \"Blanca\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/estudiantes/primer-ingreso",
-					"host": ["{{base_url}}"],
-					"path": ["estudiantes", "primer-ingreso"]
-				},
-				"description": "Registrar otro estudiante"
-			},
-			"response": []
-		},
-		{
-			"name": "8. Listar estudiantes dentro del campus",
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{jwt_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/movimientos/dentro-campus",
-					"host": ["{{base_url}}"],
-					"path": ["movimientos", "dentro-campus"]
-				},
-				"description": "Obtener lista de estudiantes actualmente dentro del campus con sus motocicletas"
-			},
-			"response": []
-		},
-		{
-			"name": "9. Registrar entrada de estudiante",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{jwt_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"qr_uid\": \"QR12345\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/movimientos/entrada",
-					"host": ["{{base_url}}"],
-					"path": ["movimientos", "entrada"]
-				},
-				"description": "Registrar una ENTRADA de un estudiante escaneando su QR"
-			},
-			"response": []
-		},
-		{
-			"name": "10. Registrar salida de estudiante",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{jwt_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"qr_uid\": \"QR12345\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/movimientos/salida",
-					"host": ["{{base_url}}"],
-					"path": ["movimientos", "salida"]
-				},
-				"description": "Registrar una SALIDA de un estudiante"
-			},
-			"response": []
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:3000",
-			"type": "string"
-		},
-		{
-			"key": "jwt_token",
-			"value": "",
-			"type": "string"
-		}
-	]
+  "info": {
+    "name": "Control de Acceso CIDE - API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Login Admin",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin123!\"\n}" },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+      }
+    },
+    {
+      "name": "Login Guarda",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"guarda\",\n  \"password\": \"Guarda123!\"\n}" },
+        "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+      }
+    },
+    {
+      "name": "Primer ingreso",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{guarda_token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"documento\": \"102030405\",\n  \"qr_uid\": \"QR12345\",\n  \"nombre\": \"Luis Ramon\",\n  \"carrera\": \"Ingenieria Mecatronica\",\n  \"vigencia\": true,\n  \"placa\": \"ABC-123\",\n  \"color\": \"Negro\"\n}" },
+        "url": { "raw": "{{base_url}}/estudiantes/primer-ingreso", "host": ["{{base_url}}"], "path": ["estudiantes", "primer-ingreso"] }
+      }
+    },
+    {
+      "name": "Registrar movimiento",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{guarda_token}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"qr_uid\": \"QR12345\"\n}" },
+        "url": { "raw": "{{base_url}}/movimientos/registrar", "host": ["{{base_url}}"], "path": ["movimientos", "registrar"] }
+      }
+    },
+    {
+      "name": "Listar movimientos",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+        "url": { "raw": "{{base_url}}/movimientos", "host": ["{{base_url}}"], "path": ["movimientos"] }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "admin_token", "value": "", "type": "string" },
+    { "key": "guarda_token", "value": "", "type": "string" }
+  ]
 }

@@ -1,107 +1,80 @@
 # Sistema de Control de Acceso con QR
-Proyecto academico para registrar el ingreso y salida de estudiantes mediante lectura de codigo QR.
 
-## Tecnologias utilizadas
+Backend academico para registrar entradas y salidas con QR.
+
+## Tecnologias
 - Node.js
 - Express
-- PostgreSQL
+- PostgreSQL (`pg`)
 - bcrypt
 - jsonwebtoken
-- Git / GitHub
 
-## Arquitectura del proyecto
-backend
-|- config
-|  `- database.js
-|- constants
-|  `- roles.js
-|- controllers
-|  |- auth.controller.js
-|  |- estudiantes.controller.js
-|  `- movimientos.controller.js
-|- middleware
-|  `- requireRole.js
-|- routes
-|  |- admin.routes.js
-|  |- auth.routes.js
-|  |- estudiantes.routes.js
-|  `- movimientos.routes.js
-|- database
-|  `- schema.sql
-|- tests
-|  |- roles.middleware.test.js
-|  |- movimientos.controller.test.js
-|  |- estudiantes.controller.test.js
-|  `- movimientos.dentro-campus.integration.test.js
+## Estructura
+```text
+backend/
+|- config/database.js
+|- controllers/
+|- models/
+|- middleware/
+|- middlewares/
+|- routes/
+|- database/schema.sql
 `- server.js
-
-## Requisito para aportes de codigo
-Todo aporte al backend debe mantener y usar estas dependencias de autenticacion:
-- `bcrypt`
-- `jsonwebtoken`
-
-Si agregas o modificas funcionalidad de auth, valida que queden declaradas en `backend/package.json` y actualizadas en `backend/package-lock.json`.
-
-## Instalacion
-### 1. Clonar repositorio
-`git clone https://github.com/IngAutomata/CONTROL-DE-ACCESO-CIDE.git`
-
-### 2. Entrar al backend
-`cd CONTROL-DE-ACCESO-CIDE/backend`
-
-### 3. Instalar dependencias
-`npm install`
-
-### 4. Configurar credenciales (.env)
-Crea `backend/.env` desde el ejemplo y coloca tu password real de PostgreSQL:
-
-```powershell
-Copy-Item .env.example .env
 ```
 
-Variables usadas por el backend:
+## Configuracion
+1. `cd backend`
+2. `npm install`
+3. Crear `.env` desde `.env.example`.
+
+Variables requeridas:
 - `DB_USER`
 - `DB_HOST`
 - `DB_NAME`
 - `DB_PASSWORD`
 - `DB_PORT`
+- `JWT_SECRET`
+- `PORT` (opcional)
 
 ## Base de datos
-### Crear la base de datos
-`CREATE DATABASE control_acceso_cide;`
-
-### Ejecutar el schema
-`psql -U postgres -d control_acceso_cide -f database/schema.sql`
-
-### Si ya tenias la tabla `estudiantes` creada
-Ejecuta esta migracion para alinear el flujo QR:
-
 ```sql
-ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS qr_uid VARCHAR(120);
-UPDATE estudiantes SET qr_uid = documento WHERE qr_uid IS NULL;
-ALTER TABLE estudiantes ALTER COLUMN qr_uid SET NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS estudiantes_qr_uid_key ON estudiantes(qr_uid);
+CREATE DATABASE control_acceso_cide;
 ```
 
-## Ejecutar servidor
-`npm start`
+Ejecutar schema:
+```bash
+psql -U postgres -d control_acceso_cide -f database/schema.sql
+```
 
-### Health check
-`http://localhost:3000/health`
+Seed de usuarios base:
+```bash
+node database/seed.js
+```
 
-## Autenticacion y roles
-### Login
-`POST /auth/login`
+Usuarios creados/actualizados por el seed:
+- `admin / Admin123!` -> `ADMIN`
+- `guarda / Guarda123!` -> `GUARDA`
+- `consulta / Consulta123!` -> `CONSULTA`
 
+## Ejecutar
+```bash
+npm start
+```
+
+Health:
+- `GET /health`
+
+## Autenticacion y autorizacion
+1. Login: `POST /auth/login`
 Body JSON:
 ```json
 {
   "username": "admin",
-  "password": "Admin123*"
+  "password": "Admin123!"
 }
 ```
 
-Respuesta exitosa (200):
+Respuesta exitosa:
 ```json
 {
   "token": "<jwt>",
@@ -113,99 +86,58 @@ Respuesta exitosa (200):
 }
 ```
 
-Credenciales invalidas (401):
+2. Perfil autenticado: `GET /auth/me`
+Header requerido:
+- `Authorization: Bearer <token>`
+
+Respuesta exitosa:
 ```json
 {
-  "error": "Credenciales invalidas"
+  "id": 1,
+  "username": "admin",
+  "role": "ADMIN"
 }
 ```
-
-### Roles para endpoints protegidos
-El backend valida el header `x-role`.
 
 Roles soportados:
 - `ADMIN`
 - `GUARDA`
 - `CONSULTA`
 
-Ejemplo de header en PowerShell:
-```powershell
-$headers = @{ "x-role" = "GUARDA" }
-```
-
 ## Endpoints
-### Estudiantes
-- `GET /estudiantes/` (ruta de prueba)
-- `POST /estudiantes/primer-ingreso` (rol: `GUARDA`)
-- `GET /estudiantes/:documento` (roles: `ADMIN`, `GUARDA`, `CONSULTA`)
+Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
 
-#### Ejemplo: primer ingreso
-```powershell
-$headers = @{ "x-role" = "GUARDA" }
-Invoke-RestMethod -Method POST -Uri "http://localhost:3000/estudiantes/primer-ingreso" -Headers $headers -ContentType "application/json" -Body '{
-  "documento":"123456",
-  "qr_uid":"NjA5MTgy",
-  "nombre":"Luis Ramon",
-  "carrera":"Ingenieria Mecatronica",
-  "vigencia":true,
-  "placa":"ABC123",
-  "color":"Negro"
-}'
-```
+### Estudiantes
+- `POST /estudiantes/primer-ingreso` (`ADMIN` o `GUARDA`)
+- `GET /estudiantes` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /estudiantes/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /estudiantes/documento/:documento` (`ADMIN`, `GUARDA`, `CONSULTA`)
 
 ### Movimientos
-- `POST /movimientos/registrar` (rol: `GUARDA`)
-- `GET /movimientos/dentro-campus` (roles: `GUARDA`, `ADMIN`)
-
-#### Ejemplo: registrar movimiento
-```powershell
-$headers = @{ "x-role" = "GUARDA" }
-Invoke-RestMethod -Method POST -Uri "http://localhost:3000/movimientos/registrar" -Headers $headers -ContentType "application/json" -Body '{
-  "qr_uid":"NjA5MTgy"
-}'
-```
-
-#### Ejemplo: ver estudiantes dentro
-```powershell
-$headers = @{ "x-role" = "ADMIN" }
-Invoke-RestMethod -Method GET -Uri "http://localhost:3000/movimientos/dentro-campus" -Headers $headers
-```
-
-Ejemplo de respuesta:
-```json
-{
-  "count": 2,
-  "estudiantes": [
-    {
-      "estudiante_id": 1,
-      "documento": "123456",
-      "nombre": "Luis Ramon",
-      "carrera": "Ingenieria Mecatronica",
-      "vigencia": true,
-      "placa": "ABC123",
-      "color": "Negro",
-      "ultimo_movimiento": "ENTRADA",
-      "fecha_ultimo_movimiento": "2026-03-04T14:10:00.000Z"
-    }
-  ]
-}
-```
+- `POST /movimientos/registrar` (`ADMIN` o `GUARDA`)
+- `GET /movimientos` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /movimientos/estudiante/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
+- `GET /movimientos/dentro-campus` (`ADMIN` o `GUARDA`)
 
 ### Admin
-- `GET /admin/reportes` (rol: `ADMIN`)
-- `GET /admin/usuarios` (rol: `ADMIN`)
+- `GET /admin/reportes` (`ADMIN`)
+- `GET /admin/usuarios` (`ADMIN`)
 
-## Pruebas (pre-merge a main)
-Desde `backend/`:
-- Unitarias: `npm test`
-- Integracion: `npm run test:integration`
-- Completo: `npm run test:all`
+## Estado actual
+- Flujo protegido por JWT en rutas sensibles.
+- Roles validados desde el token del usuario autenticado.
+- Controladores con manejo de errores y transacciones para operaciones criticas.
+- El seed corrige usuarios base existentes para evitar roles heredados inconsistentes.
 
-Nota: `test:integration` requiere DB disponible y `DB_PASSWORD` configurado.
+## Pruebas
+```bash
+npm test
+npm run test:integration
+npm run test:all
+```
 
-## Flujo del sistema
-QR carnet estudiante
-        -> lector QR
-        -> Backend Node.js
-        -> PostgreSQL
-        -> Registro de acceso
+`test:integration` requiere PostgreSQL disponible, `DB_PASSWORD` y `JWT_SECRET` configurados.
+
+## Script de prueba manual
+- PowerShell: `./test-endpoints.ps1`
+- Bash: `bash test-endpoints.sh`

@@ -2,25 +2,42 @@ const jwt = require("jsonwebtoken");
 const { unauthorized, serverError } = require("../utils/response");
 
 function resolveJwtSecret() {
-  if (process.env.JWT_SECRET) {
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.trim().length > 0) {
     return process.env.JWT_SECRET;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "dev_secret";
   }
 
   return null;
 }
 
+function normalizeRole(roleValue) {
+  if (typeof roleValue !== "string") return null;
+
+  const role = roleValue.trim().toUpperCase();
+
+  if (role === "ADMIN") return "ADMIN";
+  if (role === "GUARDA" || role === "STAFF") return "GUARDA";
+  if (role === "CONSULTA") return "CONSULTA";
+
+  return role;
+}
+
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return unauthorized(res, "Token requerido");
+  if (!authHeader) {
+    return unauthorized(res, "Token no proporcionado");
   }
 
-  const token = authHeader.slice(7);
+  if (!authHeader.startsWith("Bearer ")) {
+    return unauthorized(res, "Formato de Authorization invalido. Usa Bearer <token>");
+  }
+
+  const token = authHeader.slice(7).trim();
+
+  if (!token) {
+    return unauthorized(res, "Token no proporcionado");
+  }
+
   const jwtSecret = resolveJwtSecret();
 
   if (!jwtSecret) {
@@ -33,12 +50,12 @@ function authMiddleware(req, res, next) {
     req.user = {
       id: decoded.id,
       username: decoded.username,
-      role: decoded.role,
+      role: normalizeRole(decoded.role),
     };
 
     return next();
-  } catch (error) {
-    return unauthorized(res, "Token inválido o expirado");
+  } catch (_error) {
+    return unauthorized(res, "Token invalido");
   }
 }
 

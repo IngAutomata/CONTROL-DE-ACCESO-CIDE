@@ -16,26 +16,27 @@ function createRes() {
   };
 }
 
-function loadControllerWithDb(mockQueryImpl) {
+function loadController({ poolMock, estudiantesModelMock }) {
   const dbPath = path.resolve(__dirname, "../config/database.js");
+  const modelPath = path.resolve(__dirname, "../models/estudiantes.model.js");
   const controllerPath = path.resolve(__dirname, "../controllers/estudiantes.controller.js");
 
   delete require.cache[dbPath];
+  delete require.cache[modelPath];
   delete require.cache[controllerPath];
-
-  const client = {
-    query: mockQueryImpl,
-    release() {},
-  };
 
   require.cache[dbPath] = {
     id: dbPath,
     filename: dbPath,
     loaded: true,
-    exports: {
-      query: mockQueryImpl,
-      connect: async () => client,
-    },
+    exports: poolMock,
+  };
+
+  require.cache[modelPath] = {
+    id: modelPath,
+    filename: modelPath,
+    loaded: true,
+    exports: estudiantesModelMock,
   };
 
   return require(controllerPath);
@@ -54,8 +55,18 @@ async function runTest(name, fn) {
 
 (async () => {
   await runTest("primerIngreso exige qr_uid", async () => {
-    const { primerIngreso } = loadControllerWithDb(async () => {
-      throw new Error("No DB call expected");
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        upsertPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
     });
 
     const req = {
@@ -70,35 +81,43 @@ async function runTest(name, fn) {
     };
     const res = createRes();
 
-    await primerIngreso(req, res);
+    await primerIngreso(req, res, () => {});
 
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.body, { error: "Faltan datos requeridos o vigencia no es boolean" });
   });
 
   await runTest("primerIngreso hace upsert incluyendo qr_uid", async () => {
-    const calls = [];
-    const { primerIngreso } = loadControllerWithDb(async (sql, params) => {
-      calls.push({ sql, params });
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
 
-      if (/BEGIN/.test(sql)) return { rows: [] };
-      if (/INSERT INTO estudiantes/i.test(sql)) {
-        return {
-          rows: [
-            {
-              id: 1,
-              documento: "123456",
-              qr_uid: "QR001",
-              nombre: "Luis",
-              carrera: "Ing",
-              vigencia: true,
-            },
-          ],
-        };
-      }
-      if (/INSERT INTO motocicletas/i.test(sql)) return { rows: [] };
-      if (/COMMIT/.test(sql)) return { rows: [] };
-      return { rows: [] };
+    const fakeEstudiante = {
+      id: 1,
+      documento: "123456",
+      qr_uid: "QR001",
+      nombre: "Luis",
+      carrera: "Ing",
+      vigencia: true,
+    };
+
+    let payloadSeen = null;
+
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        upsertPrimerIngreso: async (_client, payload) => {
+          payloadSeen = payload;
+          return fakeEstudiante;
+        },
+      },
     });
 
     const req = {
@@ -114,14 +133,13 @@ async function runTest(name, fn) {
     };
     const res = createRes();
 
-    await primerIngreso(req, res);
+    await primerIngreso(req, res, () => {});
 
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.estudiante.qr_uid, "QR001");
-
-    const upsert = calls.find((c) => /INSERT INTO estudiantes/i.test(c.sql));
-    assert.ok(upsert, "Debe ejecutar upsert de estudiantes");
-    assert.deepEqual(upsert.params, ["123456", "QR001", "Luis", "Ing", true]);
+    assert.deepEqual(payloadSeen, req.body);
+    assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
+    assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
 
   if (process.exitCode && process.exitCode !== 0) {

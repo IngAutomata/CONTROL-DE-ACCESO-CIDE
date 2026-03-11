@@ -1,33 +1,34 @@
 const pool = require("../config/database");
+const estudiantesModel = require("../models/estudiantes.model");
+const movimientosModel = require("../models/movimientos.model");
 
-// Si llega URL completa, extrae el ultimo segmento como qr_uid.
 function extraerQrUid(input) {
   if (!input || typeof input !== "string") return null;
 
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  // Intenta parsear URL para ignorar query params y hash.
   try {
     const url = new URL(trimmed);
     const parts = url.pathname.split("/").filter(Boolean);
     return parts.length > 0 ? parts[parts.length - 1] : null;
   } catch (_) {
-    // Si no es URL valida, procesa como token/path simple.
+    // no-op
   }
 
   const sinQueryNiHash = trimmed.split(/[?#]/)[0];
   const parts = sinQueryNiHash.split("/").filter(Boolean);
-
-  if (parts.length > 0) {
-    return parts[parts.length - 1];
-  }
-
-  return null;
+  return parts.length > 0 ? parts[parts.length - 1] : null;
 }
 
-async function registrarMovimiento(req, res) {
-  const qrRaw = req.body.qr_uid || req.body.qr_url;
+function parseId(rawId) {
+  const id = Number(rawId);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+async function registrarMovimiento(req, res, next) {
+  const body = req.body || {};
+  const qrRaw = body.qr_uid || body.qr_url;
   const qrUid = extraerQrUid(qrRaw);
 
   if (!qrUid) {
@@ -37,13 +38,10 @@ async function registrarMovimiento(req, res) {
   const client = await pool.connect();
 
   try {
+    console.log("[movimientos] POST /movimientos/registrar", { qr_uid: qrUid });
     await client.query("BEGIN");
 
-    // Bloquea fila de estudiante para serializar movimientos por usuario.
-    const est = await client.query(
-      "SELECT id, documento, nombre, carrera, vigencia FROM estudiantes WHERE qr_uid = $1 FOR UPDATE",
-      [qrUid]
-    );
+    const est = await estudiantesModel.findByQrUidForUpdate(client, qrUid);
 
     if (est.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -52,20 +50,19 @@ async function registrarMovimiento(req, res) {
 
     const estudiante = est.rows[0];
 
-    const last = await client.query(
-      "SELECT tipo FROM movimientos WHERE estudiante_id = $1 ORDER BY fecha DESC, id DESC LIMIT 1",
-      [estudiante.id]
-    );
+    if (estudiante.vigencia !== true) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Estudiante no vigente", estudiante_id: estudiante.id });
+    }
+
+    const last = await movimientosModel.getLastByEstudianteId(client, estudiante.id);
 
     let tipo = "ENTRADA";
     if (last.rows.length > 0 && last.rows[0].tipo === "ENTRADA") {
       tipo = "SALIDA";
     }
 
-    const mov = await client.query(
-      "INSERT INTO movimientos (estudiante_id, tipo) VALUES ($1, $2) RETURNING id, tipo, fecha",
-      [estudiante.id, tipo]
-    );
+    const mov = await movimientosModel.createMovimiento(client, estudiante.id, tipo);
 
     await client.query("COMMIT");
 
@@ -78,54 +75,63 @@ async function registrarMovimiento(req, res) {
     try {
       await client.query("ROLLBACK");
     } catch (_) {
-      // No-op: evita ocultar el error original si falla rollback.
+      // no-op
     }
 
-    console.error(error);
-    return res.status(500).json({ error: "Error registrando movimiento" });
+    return next(error);
   } finally {
     client.release();
   }
 }
 
-async function listarDentroCampus(req, res) {
+async function listarMovimientos(_req, res, next) {
   try {
-    const result = await pool.query(
-      `
-      WITH ultimo_movimiento AS (
-        SELECT DISTINCT ON (m.estudiante_id)
-          m.estudiante_id,
-          m.tipo,
-          m.fecha
-        FROM movimientos m
-        ORDER BY m.estudiante_id, m.fecha DESC, m.id DESC
-      )
-      SELECT
-        e.id AS estudiante_id,
-        e.documento,
-        e.nombre,
-        e.carrera,
-        e.vigencia,
-        moto.placa,
-        moto.color,
-        um.tipo AS ultimo_movimiento,
-        um.fecha AS fecha_ultimo_movimiento
-      FROM ultimo_movimiento um
-      JOIN estudiantes e ON e.id = um.estudiante_id
-      LEFT JOIN motocicletas moto ON moto.estudiante_id = e.id
-      WHERE um.tipo = 'ENTRADA'
-      ORDER BY um.fecha DESC
-      `
-    );
+    console.log("[movimientos] GET /movimientos");
+    const result = await movimientosModel.listAllMovimientos();
+    return res.status(200).json({
+      count: result.rows.length,
+      movimientos: result.rows,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function listarMovimientosPorEstudiante(req, res, next) {
+  const id = parseId(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "id de estudiante invalido" });
+  }
+
+  try {
+    console.log("[movimientos] GET /movimientos/estudiante/:id", { id });
+    const result = await movimientosModel.listMovimientosByEstudianteId(id);
+    return res.status(200).json({
+      count: result.rows.length,
+      movimientos: result.rows,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function listarDentroCampus(_req, res, next) {
+  try {
+    console.log("[movimientos] GET /movimientos/dentro-campus");
+    const result = await movimientosModel.listDentroCampus();
 
     return res.status(200).json({
       count: result.rows.length,
       estudiantes: result.rows,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Error consultando estudiantes dentro del campus" });
+    return next(error);
   }
 }
 
-module.exports = { registrarMovimiento, listarDentroCampus };
+module.exports = {
+  registrarMovimiento,
+  listarMovimientos,
+  listarMovimientosPorEstudiante,
+  listarDentroCampus,
+};

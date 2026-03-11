@@ -2,14 +2,13 @@ const bcrypt = require("bcrypt");
 const pool = require("../config/database");
 
 const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "Admin123*";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin123*";
 const ADMIN_ROLE = "ADMIN";
 const SALT_ROUNDS = 10;
 
 async function createAdmin() {
   try {
     const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
-    console.log("Hash generado:", passwordHash);
 
     const result = await pool.query(
       `
@@ -22,7 +21,7 @@ async function createAdmin() {
     );
 
     if (result.rowCount === 0) {
-      console.log("Usuario admin ya existe, no se duplicó");
+      console.log("Usuario admin ya existe, no se duplico");
       return;
     }
 
