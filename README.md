@@ -19,6 +19,7 @@ backend/
 |- middlewares/
 |- routes/
 |- database/schema.sql
+|- public/
 `- server.js
 ```
 
@@ -35,6 +36,17 @@ Variables requeridas:
 - `DB_PORT`
 - `JWT_SECRET`
 - `PORT` (opcional)
+
+Ejemplo rapido de `.env`:
+```env
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=control_acceso_cide
+DB_PASSWORD=tu_password_real
+DB_PORT=5432
+JWT_SECRET=dev-secret
+PORT=3000
+```
 
 ## Base de datos
 ```sql
@@ -60,6 +72,9 @@ Usuarios creados/actualizados por el seed:
 ```bash
 npm start
 ```
+
+Interfaz web:
+- `http://localhost:3000/`
 
 Health:
 - `GET /health`
@@ -122,12 +137,14 @@ Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
 ### Admin
 - `GET /admin/reportes` (`ADMIN`)
 - `GET /admin/usuarios` (`ADMIN`)
+- `POST /admin/usuarios` (`ADMIN`)
 
 ## Estado actual
 - Flujo protegido por JWT en rutas sensibles.
 - Roles validados desde el token del usuario autenticado.
 - Controladores con manejo de errores y transacciones para operaciones criticas.
 - El seed corrige usuarios base existentes para evitar roles heredados inconsistentes.
+- Hay una interfaz web basica en la raiz (`/`) para login, creacion de usuarios, registro de estudiantes y verificacion de datos.
 
 ## Pruebas
 ```bash
@@ -141,3 +158,12 @@ npm run test:all
 ## Script de prueba manual
 - PowerShell: `./test-endpoints.ps1`
 - Bash: `bash test-endpoints.sh`
+
+## Demo minima para cualquier compañero
+1. Copiar `.env.example` a `.env`
+2. Ejecutar `npm install`
+3. Crear la base y correr `database/schema.sql`
+4. Ejecutar `node database/seed.js`
+5. Ejecutar `npm start`
+6. Abrir `http://localhost:3000/`
+7. Ingresar con `admin / Admin123!`
