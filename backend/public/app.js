@@ -15,6 +15,21 @@ function printResult(title, payload, isError = false) {
   output.textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
 }
 
+function requireAuth(actionLabel) {
+  if (authToken) return true;
+
+  printResult(
+    "Sesion requerida",
+    {
+      error: `Debes iniciar sesion antes de ${actionLabel}.`,
+      hint: "Usa admin / Admin123! o guarda / Guarda123! en el bloque Login.",
+    },
+    true
+  );
+
+  return false;
+}
+
 async function apiFetch(url, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -65,6 +80,8 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
 });
 
 document.getElementById("profile-btn").addEventListener("click", async () => {
+  if (!requireAuth("consultar el perfil")) return;
+
   try {
     const data = await apiFetch("/auth/me");
     printResult("Perfil autenticado", data);
@@ -84,6 +101,8 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 
 document.getElementById("user-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireAuth("crear usuarios")) return;
+
   const formData = new FormData(event.currentTarget);
 
   try {
@@ -104,6 +123,8 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
 });
 
 document.getElementById("users-btn").addEventListener("click", async () => {
+  if (!requireAuth("listar usuarios")) return;
+
   try {
     const data = await apiFetch("/admin/usuarios");
     printResult("Usuarios del sistema", data);
@@ -114,6 +135,8 @@ document.getElementById("users-btn").addEventListener("click", async () => {
 
 document.getElementById("student-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireAuth("registrar estudiantes")) return;
+
   const formData = new FormData(event.currentTarget);
 
   try {
@@ -139,6 +162,8 @@ document.getElementById("student-form").addEventListener("submit", async (event)
 
 document.getElementById("document-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireAuth("consultar estudiantes")) return;
+
   const formData = new FormData(event.currentTarget);
 
   try {
@@ -151,6 +176,8 @@ document.getElementById("document-form").addEventListener("submit", async (event
 
 document.getElementById("movement-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!requireAuth("registrar movimientos")) return;
+
   const formData = new FormData(event.currentTarget);
 
   try {
@@ -167,6 +194,8 @@ document.getElementById("movement-form").addEventListener("submit", async (event
 });
 
 document.getElementById("inside-btn").addEventListener("click", async () => {
+  if (!requireAuth("consultar estudiantes dentro del campus")) return;
+
   try {
     const data = await apiFetch("/movimientos/dentro-campus");
     printResult("Estudiantes dentro del campus", data);
@@ -176,6 +205,8 @@ document.getElementById("inside-btn").addEventListener("click", async () => {
 });
 
 document.getElementById("students-btn").addEventListener("click", async () => {
+  if (!requireAuth("listar estudiantes")) return;
+
   try {
     const data = await apiFetch("/estudiantes");
     printResult("Listado de estudiantes", data);
