@@ -75,6 +75,40 @@ async function runTest(name, fn) {
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await primerIngreso(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "qr_uid es requerido" });
+  });
+
+  await runTest("primerIngreso rechaza placa con formato invalido", async () => {
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        upsertPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "123456",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
         placa: "ABC123",
         color: "Negro",
       },
@@ -84,7 +118,7 @@ async function runTest(name, fn) {
     await primerIngreso(req, res, () => {});
 
     assert.equal(res.statusCode, 400);
-    assert.deepEqual(res.body, { error: "Faltan datos requeridos o vigencia no es boolean" });
+    assert.deepEqual(res.body, { error: "placa debe tener formato ABC12D" });
   });
 
   await runTest("primerIngreso hace upsert incluyendo qr_uid", async () => {
@@ -127,7 +161,7 @@ async function runTest(name, fn) {
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
-        placa: "ABC123",
+        placa: "abc12d",
         color: "Negro",
       },
     };
@@ -137,7 +171,7 @@ async function runTest(name, fn) {
 
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.estudiante.qr_uid, "QR001");
-    assert.deepEqual(payloadSeen, req.body);
+    assert.deepEqual(payloadSeen, { ...req.body, placa: "ABC12D" });
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });

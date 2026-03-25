@@ -184,6 +184,7 @@ npm run test:all
 2. Pulsar `Ver /auth/me` para confirmar token
 3. Crear un usuario desde `Usuarios del sistema`
 4. Registrar un estudiante desde `Registrar estudiante`
+   - `placa` debe tener formato `ABC12D` (3 letras, 2 numeros y 1 letra final)
 5. Buscarlo por documento en `Verificar estudiante`
 6. Registrar movimiento por QR
 7. Verificarlo en `Ver dentro del campus`

@@ -30,6 +30,10 @@ function requireAuth(actionLabel) {
   return false;
 }
 
+function normalizePlate(value) {
+  return value.trim().toUpperCase();
+}
+
 async function apiFetch(url, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -138,6 +142,16 @@ document.getElementById("student-form").addEventListener("submit", async (event)
   if (!requireAuth("registrar estudiantes")) return;
 
   const formData = new FormData(event.currentTarget);
+  const placa = normalizePlate(formData.get("placa") || "");
+
+  if (!/^[A-Z]{3}\d{2}[A-Z]$/.test(placa)) {
+    printResult(
+      "Error registrando estudiante",
+      { error: "La placa debe tener formato ABC12D" },
+      true
+    );
+    return;
+  }
 
   try {
     const data = await apiFetch("/estudiantes/primer-ingreso", {
@@ -147,7 +161,7 @@ document.getElementById("student-form").addEventListener("submit", async (event)
         qr_uid: formData.get("qr_uid"),
         nombre: formData.get("nombre"),
         carrera: formData.get("carrera"),
-        placa: formData.get("placa"),
+        placa,
         color: formData.get("color"),
         vigencia: formData.get("vigencia") === "on",
       }),
@@ -158,6 +172,10 @@ document.getElementById("student-form").addEventListener("submit", async (event)
   } catch (error) {
     printResult("Error registrando estudiante", error, true);
   }
+});
+
+document.querySelector('input[name="placa"]').addEventListener("input", (event) => {
+  event.target.value = normalizePlate(event.target.value).slice(0, 6);
 });
 
 document.getElementById("document-form").addEventListener("submit", async (event) => {
