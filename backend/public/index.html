@@ -58,12 +58,16 @@
         <h2>Usuarios del sistema</h2>
         <form id="user-form" class="form-stack">
           <label>
+            Buscar usuario
+            <input name="lookup_username" type="text" placeholder="username existente">
+          </label>
+          <label>
             Username
             <input name="username" type="text" placeholder="nuevo.usuario" required>
           </label>
           <label>
             Password
-            <input name="password" type="password" placeholder="Segura123!" required>
+            <input name="password" type="password" placeholder="Segura123!">
           </label>
           <label>
             Rol
@@ -73,7 +77,12 @@
               <option value="CONSULTA">CONSULTA</option>
             </select>
           </label>
-          <button type="submit">Crear usuario</button>
+          <div class="button-row">
+            <button id="search-user-btn" type="button" class="ghost">Buscar usuario</button>
+            <button type="submit">Crear usuario</button>
+            <button id="update-user-btn" type="button" class="ghost">Editar usuario</button>
+            <button id="delete-user-btn" type="button" class="ghost danger">Eliminar usuario</button>
+          </div>
         </form>
         <button id="users-btn" type="button" class="ghost full">Listar usuarios</button>
       </article>
@@ -81,6 +90,14 @@
       <article class="card wide">
         <h2>Registrar estudiante</h2>
         <form id="student-form" class="form-grid">
+          <label>
+            Buscar por documento
+            <input name="lookup_documento" type="text" placeholder="Documento existente">
+          </label>
+          <label>
+            Buscar por placa
+            <input name="lookup_placa" type="text" placeholder="ABC12D" maxlength="6">
+          </label>
           <label>
             Documento
             <input name="documento" type="text" required>
@@ -95,11 +112,31 @@
           </label>
           <label>
             Carrera
-            <input name="carrera" type="text" required>
+            <select name="carrera" required>
+              <option value="">Selecciona una carrera</option>
+              <option value="Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538">Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538</option>
+              <option value="Tecnico Profesional Procesos de Redes y Comunicaciones - 109639">Tecnico Profesional Procesos de Redes y Comunicaciones - 109639</option>
+              <option value="Tecnico Profesional en Instalaciones Electricas para Sistemas Renovables - 108879">Tecnico Profesional en Instalaciones Electricas para Sistemas Renovables - 108879</option>
+              <option value="Tecnologo Electrico en Generacion y Gestion Eficiente de Energias Renovables - 108524">Tecnologo Electrico en Generacion y Gestion Eficiente de Energias Renovables - 108524</option>
+              <option value="Tecnologo en Gestion de Sistemas Mecatronicos Industriales - 108525">Tecnologo en Gestion de Sistemas Mecatronicos Industriales - 108525</option>
+              <option value="Tecnologia en Gestion de Seguridad y Salud en el Trabajo - 108794">Tecnologia en Gestion de Seguridad y Salud en el Trabajo - 108794</option>
+              <option value="Tecnologia en Gestion de Sistemas Informaticos - 110400">Tecnologia en Gestion de Sistemas Informaticos - 110400</option>
+              <option value="Ingenieria Electrica - 108667">Ingenieria Electrica - 108667</option>
+              <option value="Ingenieria Mecatronica - 108787">Ingenieria Mecatronica - 108787</option>
+              <option value="Ingenieria Industrial - 108795">Ingenieria Industrial - 108795</option>
+              <option value="Ingenieria de Sistemas - 110399">Ingenieria de Sistemas - 110399</option>
+            </select>
           </label>
           <label>
             Placa
-            <input name="placa" type="text" required>
+            <input
+              name="placa"
+              type="text"
+              placeholder="ABC12D"
+              pattern="[A-Za-z]{3}[0-9]{2}[A-Za-z]"
+              title="La placa debe tener 3 letras, 2 numeros y 1 letra final. Ejemplo: ABC12D"
+              maxlength="6"
+              required>
           </label>
           <label>
             Color
@@ -109,7 +146,12 @@
             <input name="vigencia" type="checkbox" checked>
             <span>Vigente</span>
           </label>
-          <button type="submit">Registrar primer ingreso</button>
+          <div class="button-row span-two">
+            <button id="search-student-btn" type="button" class="ghost">Buscar estudiante</button>
+            <button type="submit">Registrar primer ingreso</button>
+            <button id="update-student-btn" type="button" class="ghost">Editar estudiante</button>
+            <button id="delete-student-btn" type="button" class="ghost danger">Eliminar estudiante</button>
+          </div>
         </form>
       </article>
 
@@ -152,6 +194,19 @@
       <pre id="output" class="output">Esperando acciones...</pre>
     </section>
   </main>
+
+  <div id="confirm-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <p class="eyebrow">Confirmacion requerida</p>
+      <h2 id="modal-title">Confirmar accion</h2>
+      <p id="modal-message" class="modal-copy">Esta accion requiere confirmacion.</p>
+      <div class="button-row">
+        <button id="modal-confirm-btn" type="button">Confirmar</button>
+        <button id="modal-cancel-btn" type="button" class="ghost">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

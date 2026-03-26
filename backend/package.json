@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/auth.controller.test.js && node tests/admin.controller.test.js && node tests/roles.middleware.test.js && node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
+    "start:logs": "node server.js > server-output.log 2> server-error.log",
+    "test:general": "node tests/general.test.js",
+    "test": "node tests/comprehensive.test.js && node tests/general.test.js && node tests/form-reset-fix.test.js && node tests/index-html.test.js && node tests/auth.controller.test.js && node tests/admin.controller.test.js && node tests/roles.middleware.test.js && node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
     "test:integration": "node tests/movimientos.dentro-campus.integration.test.js",
     "test:all": "npm test && npm run test:integration"
   },

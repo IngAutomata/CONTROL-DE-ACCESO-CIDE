@@ -63,7 +63,7 @@ async function runTest(name, fn) {
         }),
       },
       estudiantesModelMock: {
-        upsertPrimerIngreso: async () => {
+        createPrimerIngreso: async () => {
           throw new Error("No debe llamarse en validacion");
         },
       },
@@ -72,6 +72,40 @@ async function runTest(name, fn) {
     const req = {
       body: {
         documento: "123456",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await primerIngreso(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "qr_uid es requerido" });
+  });
+
+  await runTest("primerIngreso rechaza placa con formato invalido", async () => {
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "123456",
+        qr_uid: "QR001",
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
@@ -84,10 +118,10 @@ async function runTest(name, fn) {
     await primerIngreso(req, res, () => {});
 
     assert.equal(res.statusCode, 400);
-    assert.deepEqual(res.body, { error: "Faltan datos requeridos o vigencia no es boolean" });
+    assert.deepEqual(res.body, { error: "placa debe tener formato ABC12D" });
   });
 
-  await runTest("primerIngreso hace upsert incluyendo qr_uid", async () => {
+  await runTest("primerIngreso crea registro incluyendo qr_uid", async () => {
     const queries = [];
     const client = {
       query: async (sql) => {
@@ -113,7 +147,7 @@ async function runTest(name, fn) {
         connect: async () => client,
       },
       estudiantesModelMock: {
-        upsertPrimerIngreso: async (_client, payload) => {
+        createPrimerIngreso: async (_client, payload) => {
           payloadSeen = payload;
           return fakeEstudiante;
         },
@@ -127,7 +161,7 @@ async function runTest(name, fn) {
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
-        placa: "ABC123",
+        placa: "abc12d",
         color: "Negro",
       },
     };
@@ -137,9 +171,107 @@ async function runTest(name, fn) {
 
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.estudiante.qr_uid, "QR001");
-    assert.deepEqual(payloadSeen, req.body);
+    assert.deepEqual(payloadSeen, { ...req.body, placa: "ABC12D" });
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
+  });
+
+  await runTest("primerIngreso retorna 409 si qr_uid ya existe en otro estudiante", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const duplicateError = new Error("duplicate key");
+    duplicateError.code = "23505";
+    duplicateError.constraint = "estudiantes_qr_uid_key";
+
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw duplicateError;
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "123999",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+    let nextCalled = false;
+
+    await primerIngreso(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 409);
+    assert.deepEqual(res.body, { error: "qr_uid ya esta registrado en otro estudiante" });
+    assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
+  });
+
+  await runTest("primerIngreso hace rollback y delega errores inesperados", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const unexpectedError = new Error("fallo inesperado");
+
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw unexpectedError;
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "123999",
+        qr_uid: "QR999",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+    let nextArg = null;
+
+    await primerIngreso(req, res, (error) => {
+      nextArg = error;
+    });
+
+    assert.equal(nextArg, unexpectedError);
+    assert.equal(res.body, null);
+    assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
+    assert.equal(queries.some((sql) => /COMMIT/.test(sql)), false, "No debe confirmar transaccion");
   });
 
   if (process.exitCode && process.exitCode !== 0) {
