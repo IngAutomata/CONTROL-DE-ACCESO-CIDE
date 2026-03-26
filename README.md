@@ -157,6 +157,7 @@ Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
 - El seed corrige usuarios base existentes para evitar roles heredados inconsistentes.
 - Hay una interfaz web basica en la raiz (`/`) para login, creacion de usuarios, registro de estudiantes y verificacion de datos.
 - La vista de `ADMIN` puede buscar usuarios por `username` y estudiantes por `documento` o `placa`, autocompletar campos y luego editar o eliminar sin depender de IDs visibles.
+- Antes de editar o eliminar usuarios o estudiantes, la interfaz muestra un popup de confirmacion para evitar cambios accidentales.
 
 ## Pruebas
 Comandos genericos:
@@ -198,6 +199,7 @@ npm run test:all
 4. Registrar un estudiante desde `Registrar estudiante`
    - `placa` debe tener formato `ABC12D` (3 letras, 2 numeros y 1 letra final)
 5. Buscar estudiantes por `documento` o `placa`, autocompletar y luego editar o eliminar
+   - al editar o eliminar, aparece un popup de confirmacion
 6. Buscarlo por documento en `Verificar estudiante`
 7. Registrar movimiento por QR
 8. Verificarlo en `Ver dentro del campus`

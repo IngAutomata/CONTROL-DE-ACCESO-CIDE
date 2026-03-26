@@ -1,6 +1,10 @@
 const output = document.getElementById("output");
 const sessionRole = document.getElementById("session-role");
 const sessionToken = document.getElementById("session-token");
+const confirmModal = document.getElementById("confirm-modal");
+const modalMessage = document.getElementById("modal-message");
+const modalConfirmBtn = document.getElementById("modal-confirm-btn");
+const modalCancelBtn = document.getElementById("modal-cancel-btn");
 
 let authToken = localStorage.getItem("access_token") || "";
 let currentUser = JSON.parse(localStorage.getItem("auth_user") || "null");
@@ -8,6 +12,7 @@ const userForm = document.getElementById("user-form");
 const studentForm = document.getElementById("student-form");
 let selectedUsername = "";
 let selectedStudentDocumento = "";
+let pendingConfirmAction = null;
 
 function refreshSessionUI() {
   sessionRole.textContent = currentUser ? `${currentUser.username} / ${currentUser.role}` : "Sin iniciar";
@@ -130,6 +135,32 @@ function resetStudentSelection() {
   selectedStudentDocumento = "";
 }
 
+function openConfirmModal(message, action) {
+  pendingConfirmAction = action;
+  modalMessage.textContent = message;
+  confirmModal.classList.remove("hidden");
+  confirmModal.setAttribute("aria-hidden", "false");
+  modalConfirmBtn.focus();
+}
+
+function closeConfirmModal() {
+  pendingConfirmAction = null;
+  confirmModal.classList.add("hidden");
+  confirmModal.setAttribute("aria-hidden", "true");
+}
+
+async function runWithConfirmation(message, action) {
+  return new Promise((resolve) => {
+    openConfirmModal(message, async () => {
+      try {
+        await action();
+      } finally {
+        resolve();
+      }
+    });
+  });
+}
+
 async function apiFetch(url, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -209,7 +240,26 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   printResult("Sesion cerrada", { ok: true });
 });
 
-userForm.addEventListener("submit", async (event) => {
+modalConfirmBtn.addEventListener("click", async () => {
+  const action = pendingConfirmAction;
+  closeConfirmModal();
+
+  if (action) {
+    await action();
+  }
+});
+
+modalCancelBtn.addEventListener("click", () => {
+  closeConfirmModal();
+});
+
+confirmModal.addEventListener("click", (event) => {
+  if (event.target.dataset.closeModal === "true") {
+    closeConfirmModal();
+  }
+});
+
+document.getElementById("user-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!ensureAdmin("crear usuarios")) return;
 
@@ -271,17 +321,22 @@ document.getElementById("update-user-btn").addEventListener("click", async () =>
     return;
   }
 
-  try {
-    const data = await apiFetch(`/admin/usuarios/username/${encodeURIComponent(lookupUsername)}`, {
-      method: "PUT",
-      body: JSON.stringify(buildUserPayload(formData)),
-    });
+  await runWithConfirmation(
+    `Vas a actualizar el usuario "${lookupUsername}". Verifica role y password antes de continuar.`,
+    async () => {
+      try {
+        const data = await apiFetch(`/admin/usuarios/username/${encodeURIComponent(lookupUsername)}`, {
+          method: "PUT",
+          body: JSON.stringify(buildUserPayload(formData)),
+        });
 
-    fillUserForm(data.usuario);
-    printResult("Usuario actualizado", data);
-  } catch (error) {
-    printResult("Error editando usuario", error, true);
-  }
+        fillUserForm(data.usuario);
+        printResult("Usuario actualizado", data);
+      } catch (error) {
+        printResult("Error editando usuario", error, true);
+      }
+    }
+  );
 });
 
 document.getElementById("delete-user-btn").addEventListener("click", async () => {
@@ -294,20 +349,25 @@ document.getElementById("delete-user-btn").addEventListener("click", async () =>
     return;
   }
 
-  try {
-    const data = await apiFetch(`/admin/usuarios/username/${encodeURIComponent(lookupUsername)}`, {
-      method: "DELETE",
-    });
+  await runWithConfirmation(
+    `Vas a eliminar el usuario "${lookupUsername}". Esta accion no se puede deshacer.`,
+    async () => {
+      try {
+        const data = await apiFetch(`/admin/usuarios/username/${encodeURIComponent(lookupUsername)}`, {
+          method: "DELETE",
+        });
 
-    printResult("Usuario eliminado", data);
-    userForm.reset();
-    resetUserSelection();
-  } catch (error) {
-    printResult("Error eliminando usuario", error, true);
-  }
+        printResult("Usuario eliminado", data);
+        userForm.reset();
+        resetUserSelection();
+      } catch (error) {
+        printResult("Error eliminando usuario", error, true);
+      }
+    }
+  );
 });
 
-studentForm.addEventListener("submit", async (event) => {
+document.getElementById("student-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!requireAuth("registrar estudiantes")) return;
 
@@ -378,17 +438,22 @@ document.getElementById("update-student-btn").addEventListener("click", async ()
     return;
   }
 
-  try {
-    const data = await apiFetch(`/admin/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
+  await runWithConfirmation(
+    `Vas a actualizar el estudiante con documento "${lookupDocumento}". Confirma que los datos cargados son correctos.`,
+    async () => {
+      try {
+        const data = await apiFetch(`/admin/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
 
-    fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color });
-    printResult("Estudiante actualizado", data);
-  } catch (error) {
-    printResult("Error editando estudiante", error, true);
-  }
+        fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color });
+        printResult("Estudiante actualizado", data);
+      } catch (error) {
+        printResult("Error editando estudiante", error, true);
+      }
+    }
+  );
 });
 
 document.getElementById("delete-student-btn").addEventListener("click", async () => {
@@ -401,17 +466,22 @@ document.getElementById("delete-student-btn").addEventListener("click", async ()
     return;
   }
 
-  try {
-    const data = await apiFetch(`/admin/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
-      method: "DELETE",
-    });
+  await runWithConfirmation(
+    `Vas a eliminar el estudiante con documento "${lookupDocumento}". Esta accion no se puede deshacer.`,
+    async () => {
+      try {
+        const data = await apiFetch(`/admin/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
+          method: "DELETE",
+        });
 
-    printResult("Estudiante eliminado", data);
-    studentForm.reset();
-    resetStudentSelection();
-  } catch (error) {
-    printResult("Error eliminando estudiante", error, true);
-  }
+        printResult("Estudiante eliminado", data);
+        studentForm.reset();
+        resetStudentSelection();
+      } catch (error) {
+        printResult("Error eliminando estudiante", error, true);
+      }
+    }
+  );
 });
 
 document.querySelector('input[name="placa"]').addEventListener("input", (event) => {

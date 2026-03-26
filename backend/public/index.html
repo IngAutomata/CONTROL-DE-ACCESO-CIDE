@@ -195,6 +195,19 @@
     </section>
   </main>
 
+  <div id="confirm-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <p class="eyebrow">Confirmacion requerida</p>
+      <h2 id="modal-title">Confirmar accion</h2>
+      <p id="modal-message" class="modal-copy">Esta accion requiere confirmacion.</p>
+      <div class="button-row">
+        <button id="modal-confirm-btn" type="button">Confirmar</button>
+        <button id="modal-cancel-btn" type="button" class="ghost">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>
