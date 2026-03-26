@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { listarUsuarios, crearUsuario } = require("../controllers/admin.controller");
+const { listarUsuarios, listarAuditoria, crearUsuario } = require("../controllers/admin.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const { requireRole } = require("../middleware/requireRole");
 const { ROLES } = require("../constants/roles");
@@ -13,6 +13,7 @@ router.get("/reportes", (_req, res) => {
   return res.status(200).json({ message: "Reportes administrativos" });
 });
 
+router.get("/auditoria", listarAuditoria);
 router.get("/usuarios", listarUsuarios);
 router.post("/usuarios", crearUsuario);
 

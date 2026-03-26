@@ -193,6 +193,7 @@ button.full {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
   text-align: left;
+  vertical-align: top;
 }
 
 .history-table th {

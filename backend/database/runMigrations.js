@@ -26,6 +26,18 @@ async function runMigrations() {
     ALTER TABLE movimientos
       ADD COLUMN IF NOT EXISTS created_by INT REFERENCES usuarios(id) ON DELETE SET NULL
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auditoria (
+      id SERIAL PRIMARY KEY,
+      actor_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
+      tabla VARCHAR(50) NOT NULL,
+      registro_id INT,
+      tipo_movimiento VARCHAR(80) NOT NULL,
+      descripcion TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 }
 
 module.exports = { runMigrations };

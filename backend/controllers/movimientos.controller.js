@@ -1,6 +1,8 @@
 const pool = require("../config/database");
 const estudiantesModel = require("../models/estudiantes.model");
 const movimientosModel = require("../models/movimientos.model");
+const auditoriaModel = require("../models/auditoria.model");
+const { AUDIT_TABLES, AUDIT_TYPES } = require("../constants/auditTypes");
 
 function extraerQrUid(input) {
   if (!input || typeof input !== "string") return null;
@@ -72,6 +74,14 @@ async function registrarMovimiento(req, res, next) {
     }
 
     const mov = await movimientosModel.createMovimiento(client, estudiante.id, tipo, req.user?.id ?? null);
+
+    await auditoriaModel.createAuditLog(client, {
+      actorUserId: req.user?.id ?? null,
+      tabla: AUDIT_TABLES.MOVIMIENTOS,
+      registroId: mov.rows[0].id,
+      tipoMovimiento: tipo === "ENTRADA" ? AUDIT_TYPES.REGISTRAR_ENTRADA : AUDIT_TYPES.REGISTRAR_SALIDA,
+      descripcion: `Se registro ${tipo.toLowerCase()} para ${estudiante.nombre} (${estudiante.documento})`,
+    });
 
     await client.query("COMMIT");
 

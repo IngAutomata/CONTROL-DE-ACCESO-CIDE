@@ -1,5 +1,7 @@
 const pool = require("../config/database");
 const estudiantesModel = require("../models/estudiantes.model");
+const auditoriaModel = require("../models/auditoria.model");
+const { AUDIT_TABLES, AUDIT_TYPES } = require("../constants/auditTypes");
 
 function validarPrimerIngreso(body = {}) {
   const { documento, qr_uid, nombre, carrera, vigencia, placa, color } = body;
@@ -20,6 +22,24 @@ function parseId(rawId) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function handlePrimerIngresoError(error, res, next) {
+  if (error && error.code === "23505") {
+    const detail = typeof error.detail === "string" ? error.detail : "";
+
+    if (detail.includes("(qr_uid)")) {
+      return res.status(409).json({ error: "El QR ya esta asignado a otro estudiante" });
+    }
+
+    if (detail.includes("(documento)")) {
+      return res.status(409).json({ error: "El documento ya existe" });
+    }
+
+    return res.status(409).json({ error: "Conflicto por datos duplicados" });
+  }
+
+  return next(error);
+}
+
 async function primerIngreso(req, res, next) {
   const errorValidacion = validarPrimerIngreso(req.body);
   if (errorValidacion) {
@@ -32,7 +52,24 @@ async function primerIngreso(req, res, next) {
     console.log("[estudiantes] POST /primer-ingreso", { documento: req.body.documento });
     await client.query("BEGIN");
 
-    const estudiante = await estudiantesModel.upsertPrimerIngreso(client, req.body, req.user?.id ?? null);
+    const result = await estudiantesModel.upsertPrimerIngreso(client, req.body, req.user?.id ?? null);
+    const { estudiante, estudianteWasCreated, motoWasCreated } = result;
+
+    await auditoriaModel.createAuditLog(client, {
+      actorUserId: req.user?.id ?? null,
+      tabla: AUDIT_TABLES.ESTUDIANTES,
+      registroId: estudiante.id,
+      tipoMovimiento: estudianteWasCreated ? AUDIT_TYPES.CREAR_ESTUDIANTE : AUDIT_TYPES.ACTUALIZAR_ESTUDIANTE,
+      descripcion: `${estudianteWasCreated ? "Se creo" : "Se actualizo"} el estudiante ${estudiante.nombre} (${estudiante.documento})`,
+    });
+
+    await auditoriaModel.createAuditLog(client, {
+      actorUserId: req.user?.id ?? null,
+      tabla: AUDIT_TABLES.MOTOCICLETAS,
+      registroId: estudiante.id,
+      tipoMovimiento: motoWasCreated ? AUDIT_TYPES.CREAR_MOTOCICLETA : AUDIT_TYPES.ACTUALIZAR_MOTOCICLETA,
+      descripcion: `${motoWasCreated ? "Se registro" : "Se actualizo"} la motocicleta del estudiante ${estudiante.documento}`,
+    });
 
     await client.query("COMMIT");
 
@@ -47,7 +84,7 @@ async function primerIngreso(req, res, next) {
       // no-op
     }
 
-    return next(error);
+    return handlePrimerIngresoError(error, res, next);
   } finally {
     client.release();
   }

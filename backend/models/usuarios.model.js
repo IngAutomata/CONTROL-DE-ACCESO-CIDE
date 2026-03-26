@@ -22,10 +22,12 @@ async function findByUsername(username) {
   );
 }
 
-async function createUsuario(payload) {
+async function createUsuario(clientOrPayload, payloadMaybe) {
+  const client = payloadMaybe ? clientOrPayload : pool;
+  const payload = payloadMaybe || clientOrPayload;
   const { username, passwordHash, role, actorUserId = null } = payload;
 
-  return pool.query(
+  return client.query(
     `
     INSERT INTO usuarios (username, password_hash, role, created_by, updated_by)
     VALUES ($1, $2, $3, $4, $4)

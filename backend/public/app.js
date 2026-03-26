@@ -6,9 +6,11 @@ const historyTable = document.getElementById("history-table");
 const historyBody = document.getElementById("history-body");
 const historyEmpty = document.getElementById("history-empty");
 const historyButton = document.getElementById("history-btn");
+const historyRefreshButton = document.getElementById("history-refresh-btn");
 
 let authToken = localStorage.getItem("access_token") || "";
 let currentUser = JSON.parse(localStorage.getItem("auth_user") || "null");
+let historyAutoRefreshId = null;
 
 function refreshSessionUI() {
   sessionRole.textContent = currentUser ? `${currentUser.username} / ${currentUser.role}` : "Sin iniciar";
@@ -48,31 +50,62 @@ function formatDateTime(value) {
 
 function hideHistoryPanel() {
   historyPanel.classList.add("hidden");
+  stopHistoryAutoRefresh();
 }
 
-function renderHistory(movimientos = []) {
+function isHistoryVisible() {
+  return !historyPanel.classList.contains("hidden");
+}
+
+function stopHistoryAutoRefresh() {
+  if (historyAutoRefreshId) {
+    window.clearInterval(historyAutoRefreshId);
+    historyAutoRefreshId = null;
+  }
+}
+
+function startHistoryAutoRefresh() {
+  stopHistoryAutoRefresh();
+
+  historyAutoRefreshId = window.setInterval(async () => {
+    if (!isHistoryVisible() || currentUser?.role !== "ADMIN") {
+      stopHistoryAutoRefresh();
+      return;
+    }
+
+    try {
+      const data = await apiFetch("/admin/auditoria");
+      renderHistory(data.auditoria || []);
+    } catch (_) {
+      // Si falla una recarga automatica no interrumpimos la pantalla.
+    }
+  }, 5000);
+}
+
+function renderHistory(registros = []) {
   historyBody.innerHTML = "";
 
-  if (!movimientos.length) {
+  if (!registros.length) {
     historyEmpty.classList.remove("hidden");
     historyTable.classList.add("hidden");
     historyPanel.classList.remove("hidden");
     return;
   }
 
-  const rows = movimientos.map((movimiento) => {
-    const { fecha, hora } = formatDateTime(movimiento.fecha_hora);
-    const tipo = String(movimiento.tipo || "").toUpperCase();
-    const tipoClass = tipo === "ENTRADA" ? "entrada" : "salida";
+  const rows = registros.map((registro) => {
+    const { fecha, hora } = formatDateTime(registro.created_at);
+    const tipo = String(registro.tipo_movimiento || "").toUpperCase();
+    const tipoClass = tipo.includes("ENTRADA") ? "entrada" : tipo.includes("SALIDA") ? "salida" : "";
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
       <td>${fecha}</td>
       <td>${hora}</td>
-      <td>${movimiento.documento || "-"}</td>
-      <td>${movimiento.nombre || "-"}</td>
       <td><span class="history-type ${tipoClass}">${tipo || "-"}</span></td>
-      <td>${movimiento.registrado_por || "Sistema"}</td>
+      <td>${registro.tabla || "-"}</td>
+      <td>${registro.registro_id ?? "-"}</td>
+      <td>${registro.actor_username || "Sistema"}</td>
+      <td>${registro.descripcion || "-"}</td>
     `;
 
     return tr;
@@ -82,7 +115,7 @@ function renderHistory(movimientos = []) {
   historyEmpty.classList.add("hidden");
   historyTable.classList.remove("hidden");
   historyPanel.classList.remove("hidden");
-  historyPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  startHistoryAutoRefresh();
 }
 
 function requireAuth(actionLabel) {
@@ -113,6 +146,7 @@ async function apiFetch(url, options = {}) {
 
   const response = await fetch(url, {
     ...options,
+    cache: options.cache || "no-store",
     headers,
   });
 
@@ -136,6 +170,24 @@ async function apiFetch(url, options = {}) {
   }
 
   return data;
+}
+
+async function loadHistory() {
+  if (!requireAuth("consultar el historico de auditoria")) return;
+  if (currentUser?.role !== "ADMIN") {
+    hideHistoryPanel();
+    printResult("Acceso denegado", { error: "Solo ADMIN puede visualizar historicos." }, true);
+    return;
+  }
+
+  try {
+    const data = await apiFetch("/admin/auditoria");
+    renderHistory(data.auditoria || []);
+    printResult("Historico de auditoria", data);
+  } catch (error) {
+    hideHistoryPanel();
+    printResult("Error consultando historicos", error, true);
+  }
 }
 
 document.getElementById("login-form").addEventListener("submit", async (event) => {
@@ -272,6 +324,10 @@ document.getElementById("movement-form").addEventListener("submit", async (event
       }),
     });
     printResult("Movimiento registrado", data);
+
+    if (currentUser?.role === "ADMIN" && isHistoryVisible()) {
+      await loadHistory();
+    }
   } catch (error) {
     printResult("Error registrando movimiento", error, true);
   }
@@ -289,21 +345,7 @@ document.getElementById("inside-btn").addEventListener("click", async () => {
 });
 
 document.getElementById("history-btn").addEventListener("click", async () => {
-  if (!requireAuth("consultar el historico de movimientos")) return;
-  if (currentUser?.role !== "ADMIN") {
-    hideHistoryPanel();
-    printResult("Acceso denegado", { error: "Solo ADMIN puede visualizar historicos." }, true);
-    return;
-  }
-
-  try {
-    const data = await apiFetch("/movimientos");
-    renderHistory(data.movimientos || []);
-    printResult("Historico de movimientos", data);
-  } catch (error) {
-    hideHistoryPanel();
-    printResult("Error consultando historicos", error, true);
-  }
+  await loadHistory();
 });
 
 document.getElementById("students-btn").addEventListener("click", async () => {
@@ -323,6 +365,10 @@ document.getElementById("clear-output").addEventListener("click", () => {
 
 document.getElementById("history-close-btn").addEventListener("click", () => {
   hideHistoryPanel();
+});
+
+historyRefreshButton.addEventListener("click", async () => {
+  await loadHistory();
 });
 
 refreshSessionUI();

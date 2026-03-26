@@ -16,13 +16,15 @@ function createRes() {
   };
 }
 
-function loadController({ poolMock, estudiantesModelMock }) {
+function loadController({ poolMock, estudiantesModelMock, auditoriaModelMock }) {
   const dbPath = path.resolve(__dirname, "../config/database.js");
   const modelPath = path.resolve(__dirname, "../models/estudiantes.model.js");
+  const auditModelPath = path.resolve(__dirname, "../models/auditoria.model.js");
   const controllerPath = path.resolve(__dirname, "../controllers/estudiantes.controller.js");
 
   delete require.cache[dbPath];
   delete require.cache[modelPath];
+  delete require.cache[auditModelPath];
   delete require.cache[controllerPath];
 
   require.cache[dbPath] = {
@@ -37,6 +39,15 @@ function loadController({ poolMock, estudiantesModelMock }) {
     filename: modelPath,
     loaded: true,
     exports: estudiantesModelMock,
+  };
+
+  require.cache[auditModelPath] = {
+    id: auditModelPath,
+    filename: auditModelPath,
+    loaded: true,
+    exports: auditoriaModelMock || {
+      createAuditLog: async () => ({ rows: [{ id: 1 }] }),
+    },
   };
 
   return require(controllerPath);
@@ -67,6 +78,7 @@ async function runTest(name, fn) {
           throw new Error("No debe llamarse en validacion");
         },
       },
+      auditoriaModelMock: {},
     });
 
     const req = {
@@ -87,7 +99,7 @@ async function runTest(name, fn) {
     assert.deepEqual(res.body, { error: "Faltan datos requeridos o vigencia no es boolean" });
   });
 
-  await runTest("primerIngreso hace upsert incluyendo qr_uid", async () => {
+  await runTest("primerIngreso hace upsert incluyendo qr_uid y audita", async () => {
     const queries = [];
     const client = {
       query: async (sql) => {
@@ -97,16 +109,21 @@ async function runTest(name, fn) {
       release() {},
     };
 
-    const fakeEstudiante = {
-      id: 1,
-      documento: "123456",
-      qr_uid: "QR001",
-      nombre: "Luis",
-      carrera: "Ing",
-      vigencia: true,
+    const fakeResult = {
+      estudiante: {
+        id: 1,
+        documento: "123456",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+      },
+      estudianteWasCreated: true,
+      motoWasCreated: true,
     };
 
     let payloadSeen = null;
+    let auditCount = 0;
 
     const { primerIngreso } = loadController({
       poolMock: {
@@ -115,7 +132,13 @@ async function runTest(name, fn) {
       estudiantesModelMock: {
         upsertPrimerIngreso: async (_client, payload) => {
           payloadSeen = payload;
-          return fakeEstudiante;
+          return fakeResult;
+        },
+      },
+      auditoriaModelMock: {
+        createAuditLog: async () => {
+          auditCount += 1;
+          return { rows: [{ id: auditCount }] };
         },
       },
     });
@@ -139,6 +162,7 @@ async function runTest(name, fn) {
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.estudiante.qr_uid, "QR001");
     assert.deepEqual(payloadSeen, req.body);
+    assert.equal(auditCount, 2);
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
@@ -159,14 +183,21 @@ async function runTest(name, fn) {
         upsertPrimerIngreso: async (_client, _payload, actorUserId) => {
           actorSeen = actorUserId;
           return {
-            id: 1,
-            documento: "123456",
-            qr_uid: "QR001",
-            nombre: "Luis",
-            carrera: "Ing",
-            vigencia: true,
+            estudiante: {
+              id: 1,
+              documento: "123456",
+              qr_uid: "QR001",
+              nombre: "Luis",
+              carrera: "Ing",
+              vigencia: true,
+            },
+            estudianteWasCreated: true,
+            motoWasCreated: true,
           };
         },
+      },
+      auditoriaModelMock: {
+        createAuditLog: async () => ({ rows: [{ id: 1 }] }),
       },
     });
 

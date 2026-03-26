@@ -16,15 +16,17 @@ function createRes() {
   };
 }
 
-function loadController({ poolMock, estudiantesModelMock, movimientosModelMock }) {
+function loadController({ poolMock, estudiantesModelMock, movimientosModelMock, auditoriaModelMock }) {
   const dbPath = path.resolve(__dirname, "../config/database.js");
   const estModelPath = path.resolve(__dirname, "../models/estudiantes.model.js");
   const movModelPath = path.resolve(__dirname, "../models/movimientos.model.js");
+  const auditModelPath = path.resolve(__dirname, "../models/auditoria.model.js");
   const controllerPath = path.resolve(__dirname, "../controllers/movimientos.controller.js");
 
   delete require.cache[dbPath];
   delete require.cache[estModelPath];
   delete require.cache[movModelPath];
+  delete require.cache[auditModelPath];
   delete require.cache[controllerPath];
 
   require.cache[dbPath] = {
@@ -46,6 +48,15 @@ function loadController({ poolMock, estudiantesModelMock, movimientosModelMock }
     filename: movModelPath,
     loaded: true,
     exports: movimientosModelMock,
+  };
+
+  require.cache[auditModelPath] = {
+    id: auditModelPath,
+    filename: auditModelPath,
+    loaded: true,
+    exports: auditoriaModelMock || {
+      createAuditLog: async () => ({ rows: [{ id: 1 }] }),
+    },
   };
 
   return require(controllerPath);
@@ -75,6 +86,7 @@ async function runTest(name, fn) {
         getLastByEstudianteId: async () => ({ rows: [] }),
         createMovimiento: async () => ({ rows: [] }),
       },
+      auditoriaModelMock: {},
     });
 
     const req = { body: {} };
@@ -102,6 +114,7 @@ async function runTest(name, fn) {
         getLastByEstudianteId: async () => ({ rows: [] }),
         createMovimiento: async () => ({ rows: [] }),
       },
+      auditoriaModelMock: {},
     });
 
     const req = { body: { qr_uid: "QR001" } };
@@ -113,7 +126,7 @@ async function runTest(name, fn) {
     assert.deepEqual(res.body, { error: "Estudiante no vigente", estudiante_id: 10 });
   });
 
-  await runTest("registrarMovimiento alterna a SALIDA cuando ultimo movimiento fue ENTRADA", async () => {
+  await runTest("registrarMovimiento alterna a SALIDA cuando ultimo movimiento fue ENTRADA y audita", async () => {
     const calls = [];
     const client = {
       query: async (sql, params) => {
@@ -145,6 +158,12 @@ async function runTest(name, fn) {
           return { rows: [{ id: 77, estudiante_id: estudianteId, tipo, fecha_hora: "2026-03-05T15:00:00.000Z" }] };
         },
       },
+      auditoriaModelMock: {
+        createAuditLog: async (_client, input) => {
+          calls.push({ op: "createAuditLog", tipoMovimiento: input.tipoMovimiento });
+          return { rows: [{ id: 1 }] };
+        },
+      },
     });
 
     const req = {
@@ -161,6 +180,7 @@ async function runTest(name, fn) {
     assert.equal(res.body.movimiento.tipo, "SALIDA");
     assert.ok(calls.some((c) => c.op === "findByQrUidForUpdate" && c.qrUid === "QR001"));
     assert.ok(calls.some((c) => c.op === "createMovimiento" && c.estudianteId === 10 && c.tipo === "SALIDA"));
+    assert.ok(calls.some((c) => c.op === "createAuditLog" && c.tipoMovimiento === "REGISTRAR_SALIDA"));
   });
 
   await runTest("registrarMovimiento envia el actor autenticado al modelo", async () => {
@@ -185,6 +205,9 @@ async function runTest(name, fn) {
           actorSeen = actorUserId;
           return { rows: [{ id: 77, estudiante_id: estudianteId, tipo, fecha_hora: "2026-03-05T15:00:00.000Z" }] };
         },
+      },
+      auditoriaModelMock: {
+        createAuditLog: async () => ({ rows: [{ id: 1 }] }),
       },
     });
 
@@ -221,6 +244,7 @@ async function runTest(name, fn) {
       movimientosModelMock: {
         listDentroCampus: async () => ({ rows: fakeRows }),
       },
+      auditoriaModelMock: {},
     });
 
     const req = {};
@@ -246,6 +270,7 @@ async function runTest(name, fn) {
           throw boom;
         },
       },
+      auditoriaModelMock: {},
     });
 
     const req = {};

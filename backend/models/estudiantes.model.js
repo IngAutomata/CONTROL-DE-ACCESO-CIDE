@@ -2,6 +2,15 @@ const pool = require("../config/database");
 
 async function upsertPrimerIngreso(client, payload, actorUserId = null) {
   const { documento, qr_uid, nombre, carrera, vigencia, placa, color } = payload;
+  const existingEstudianteResult = await client.query(
+    "SELECT id FROM estudiantes WHERE documento = $1 LIMIT 1",
+    [documento]
+  );
+  const existingMotoResult = existingEstudianteResult.rows.length
+    ? await client.query("SELECT id FROM motocicletas WHERE estudiante_id = $1 LIMIT 1", [existingEstudianteResult.rows[0].id])
+    : { rows: [] };
+  const estudianteWasCreated = existingEstudianteResult.rows.length === 0;
+  const motoWasCreated = existingMotoResult.rows.length === 0;
 
   const estudianteResult = await client.query(
     `
@@ -36,7 +45,11 @@ async function upsertPrimerIngreso(client, payload, actorUserId = null) {
     [estudiante.id, placa, color, actorUserId]
   );
 
-  return estudiante;
+  return {
+    estudiante,
+    estudianteWasCreated,
+    motoWasCreated,
+  };
 }
 
 async function findByDocumento(documento) {

@@ -1,6 +1,9 @@
 const bcrypt = require("bcrypt");
+const pool = require("../config/database");
 const usuariosModel = require("../models/usuarios.model");
+const auditoriaModel = require("../models/auditoria.model");
 const { ROLES } = require("../constants/roles");
+const { AUDIT_TABLES, AUDIT_TYPES } = require("../constants/auditTypes");
 
 function normalizeRole(roleValue) {
   if (typeof roleValue !== "string") return null;
@@ -26,6 +29,18 @@ async function listarUsuarios(_req, res, next) {
   }
 }
 
+async function listarAuditoria(_req, res, next) {
+  try {
+    const result = await auditoriaModel.listAuditLogs();
+    return res.status(200).json({
+      count: result.rows.length,
+      auditoria: result.rows,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function crearUsuario(req, res, next) {
   const { username, password, role } = req.body || {};
   const normalizedRole = normalizeRole(role);
@@ -42,6 +57,8 @@ async function crearUsuario(req, res, next) {
     return res.status(400).json({ error: "role invalido" });
   }
 
+  const client = await pool.connect();
+
   try {
     const existing = await usuariosModel.findByUsername(username.trim());
 
@@ -50,23 +67,43 @@ async function crearUsuario(req, res, next) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const created = await usuariosModel.createUsuario({
+    await client.query("BEGIN");
+
+    const created = await usuariosModel.createUsuario(client, {
       username: username.trim(),
       passwordHash,
       role: normalizedRole,
       actorUserId: req.user?.id ?? null,
     });
 
+    await auditoriaModel.createAuditLog(client, {
+      actorUserId: req.user?.id ?? null,
+      tabla: AUDIT_TABLES.USUARIOS,
+      registroId: created.rows[0].id,
+      tipoMovimiento: AUDIT_TYPES.CREAR_USUARIO,
+      descripcion: `Se creo el usuario ${created.rows[0].username} con rol ${created.rows[0].role}`,
+    });
+
+    await client.query("COMMIT");
+
     return res.status(201).json({
       message: "Usuario creado",
       usuario: created.rows[0],
     });
   } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      // no-op
+    }
     return next(error);
+  } finally {
+    client.release();
   }
 }
 
 module.exports = {
   listarUsuarios,
+  listarAuditoria,
   crearUsuario,
 };

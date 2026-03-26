@@ -149,9 +149,12 @@
       <div class="output-head">
         <div>
           <p class="eyebrow">Bitacora operativa</p>
-          <h2>Historico de movimientos</h2>
+          <h2>Historico de auditoria</h2>
         </div>
-        <button id="history-close-btn" type="button" class="ghost">Cerrar vista</button>
+        <div class="button-row">
+          <button id="history-refresh-btn" type="button">Actualizar</button>
+          <button id="history-close-btn" type="button" class="ghost">Cerrar vista</button>
+        </div>
       </div>
       <div id="history-empty" class="history-empty">Aun no hay movimientos para mostrar.</div>
       <div class="history-table-wrap">
@@ -160,10 +163,11 @@
             <tr>
               <th>Fecha</th>
               <th>Hora</th>
-              <th>Documento</th>
-              <th>Estudiante</th>
-              <th>Tipo</th>
+              <th>Tipo de movimiento</th>
+              <th>Tabla</th>
+              <th>Registro</th>
               <th>Usuario</th>
+              <th>Descripcion</th>
             </tr>
           </thead>
           <tbody id="history-body"></tbody>
