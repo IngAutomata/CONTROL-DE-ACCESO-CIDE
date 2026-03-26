@@ -176,6 +176,56 @@ async function runTest(name, fn) {
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
 
+  await runTest("primerIngreso retorna 409 si qr_uid ya existe en otro estudiante", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const duplicateError = new Error("duplicate key");
+    duplicateError.code = "23505";
+    duplicateError.constraint = "estudiantes_qr_uid_key";
+
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        upsertPrimerIngreso: async () => {
+          throw duplicateError;
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "123999",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+    let nextCalled = false;
+
+    await primerIngreso(req, res, () => {
+      nextCalled = true;
+    });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 409);
+    assert.deepEqual(res.body, { error: "qr_uid ya esta registrado en otro estudiante" });
+    assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
+  });
+
   if (process.exitCode && process.exitCode !== 0) {
     process.exit(process.exitCode);
   }

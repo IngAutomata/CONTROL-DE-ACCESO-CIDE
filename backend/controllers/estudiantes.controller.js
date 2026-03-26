@@ -44,6 +44,22 @@ function sanitizarPrimerIngreso(body = {}) {
   };
 }
 
+function resolverConflictoPrimerIngreso(error) {
+  if (!error || error.code !== "23505") {
+    return null;
+  }
+
+  if (error.constraint === "estudiantes_qr_uid_key") {
+    return "qr_uid ya esta registrado en otro estudiante";
+  }
+
+  if (error.constraint === "estudiantes_documento_key") {
+    return "documento ya esta registrado en otro estudiante";
+  }
+
+  return "Ya existe un registro con esos datos unicos";
+}
+
 function parseId(rawId) {
   const id = Number(rawId);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -75,6 +91,11 @@ async function primerIngreso(req, res, next) {
       await client.query("ROLLBACK");
     } catch (_) {
       // no-op
+    }
+
+    const conflicto = resolverConflictoPrimerIngreso(error);
+    if (conflicto) {
+      return res.status(409).json({ error: conflicto });
     }
 
     return next(error);
