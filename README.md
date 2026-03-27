@@ -221,10 +221,18 @@ Archivos principales:
 - `backend/public/index.html`
 - `backend/public/styles.css`
 
-#### Coordinacion / integracion (tu)
-Responsabilidad: unir el trabajo del equipo y cerrar la experiencia general.
+#### Tu
+Responsabilidad: pantallas de login/perfil y monitoreo/dashboard, ademas de integracion final.
 
 Tareas:
+- ser dueno de la pantalla de login y perfil
+- mejorar la experiencia de inicio de sesion
+- mejorar visualizacion de sesion activa, token y rol
+- ser dueno de la pantalla de monitoreo
+- mejorar dashboard de operacion
+- mejorar bloque de `Dentro del campus`
+- mejorar bloque de historial de movimientos
+- conectar mejor resumen operativo, metricas y actividad reciente
 - revisar PRs o cambios de cada companero
 - integrar el dashboard con los bloques nuevos
 - validar consistencia visual general
@@ -232,8 +240,14 @@ Tareas:
 - ejecutar pruebas antes de aprobar merge interno
 - decidir cuando `develop` esta lista para pasar a `main`
 
+Pantallas asignadas:
+- `Login / Perfil / Estado de sesion`
+- `Monitoreo y Dashboard`
+
 Archivos principales:
-- todos los de `backend/public/`
+- `backend/public/index.html`
+- `backend/public/styles.css`
+- `backend/public/app.js`
 - `README.md` cuando cambie el flujo
 
 ### Que debe hacer cada uno apenas termine backend
@@ -250,8 +264,11 @@ Archivos principales:
 2. Hacer pruebas manuales de visualizacion y orden.
 
 #### Tu
-1. Coordinar integracion.
-2. Validar que nada rompa login, dashboard, busqueda guiada e historial.
+1. Tomar `Login / Perfil / Estado de sesion`.
+2. Tomar `Monitoreo y Dashboard`.
+3. Mejorar metricas, resumen operativo, dentro del campus e historial.
+4. Coordinar integracion.
+5. Validar que nada rompa login, dashboard, busqueda guiada e historial.
 
 ### Orden recomendado de ejecucion
 1. Primero terminar pendientes de backend.
