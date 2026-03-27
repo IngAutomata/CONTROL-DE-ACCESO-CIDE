@@ -159,6 +159,122 @@ Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
 - La vista de `ADMIN` puede buscar usuarios por `username` y estudiantes por `documento` o `placa`, autocompletar campos y luego editar o eliminar sin depender de IDs visibles.
 - Antes de editar o eliminar usuarios o estudiantes, la interfaz muestra un popup de confirmacion para evitar cambios accidentales.
 
+## Flujo de trabajo frontend para 4 personas
+Objetivo: permitir que el equipo avance en frontend mientras termina pendientes de backend, sin pisarse ni romper contratos ya usados por la interfaz.
+
+### Regla general antes de empezar
+1. Trabajar siempre desde `develop`.
+2. No cambiar por cuenta propia nombres de endpoints, campos JSON o roles sin avisar al equipo.
+3. Cada persona debe tocar un bloque distinto de la interfaz para evitar conflictos.
+4. Antes de subir cambios, validar al menos:
+   - `node --check backend/public/app.js`
+   - abrir `http://localhost:3000/`
+   - probar el flujo que modificaron
+
+### Reparto de trabajo sugerido
+#### Cristian
+Responsabilidad: tablas operativas y visualizacion de datos.
+
+Tareas:
+- mejorar tabla de usuarios
+- mejorar tabla de estudiantes
+- mejorar tabla de historial de movimientos
+- agregar estados vacios mas claros
+- agregar scroll horizontal y lectura mas comoda en movil
+
+Archivos principales:
+- `backend/public/index.html`
+- `backend/public/styles.css`
+- `backend/public/app.js`
+
+#### Kevin
+Responsabilidad: experiencia por rol y seguridad visual.
+
+Tareas:
+- pulir experiencia `ADMIN`, `GUARDA` y `CONSULTA`
+- revisar que botones y paneles visibles coincidan con permisos reales
+- mejorar mensajes de permiso insuficiente
+- reforzar estados de sesion, token y resumen operativo
+
+Archivos principales:
+- `backend/public/app.js`
+- `backend/public/styles.css`
+
+#### Maicol
+Responsabilidad: mejoras visuales sencillas y contenido estatico.
+
+Tareas:
+- revisar textos visibles en botones, titulos y ayudas
+- corregir ortografia o mensajes poco claros
+- mejorar placeholders y textos guia del formulario
+- apoyar estilos simples:
+  - espaciados
+  - tamanos de letra
+  - colores de badges y tarjetas
+- probar en pantalla que no se vea desordenado en desktop y movil
+
+Nota:
+- Maicol no debe tocar logica compleja de fetch, roles o renderizado principal.
+- Su enfoque debe ser visual, textual y de prueba manual.
+
+Archivos principales:
+- `backend/public/index.html`
+- `backend/public/styles.css`
+
+#### Coordinacion / integracion (tu)
+Responsabilidad: unir el trabajo del equipo y cerrar la experiencia general.
+
+Tareas:
+- revisar PRs o cambios de cada companero
+- integrar el dashboard con los bloques nuevos
+- validar consistencia visual general
+- revisar que frontend siga alineado con backend
+- ejecutar pruebas antes de aprobar merge interno
+- decidir cuando `develop` esta lista para pasar a `main`
+
+Archivos principales:
+- todos los de `backend/public/`
+- `README.md` cuando cambie el flujo
+
+### Que debe hacer cada uno apenas termine backend
+#### Cristian
+1. Tomar tablas operativas y estados vacios.
+2. Mejorar visualizacion de usuarios, estudiantes y movimientos.
+
+#### Kevin
+1. Tomar restricciones por rol en la interfaz.
+2. Revisar experiencia de `ADMIN`, `GUARDA` y `CONSULTA`.
+
+#### Maicol
+1. Tomar ajustes de textos, placeholders y estilos simples.
+2. Hacer pruebas manuales de visualizacion y orden.
+
+#### Tu
+1. Coordinar integracion.
+2. Validar que nada rompa login, dashboard, busqueda guiada e historial.
+
+### Orden recomendado de ejecucion
+1. Primero terminar pendientes de backend.
+2. Luego cada integrante toma su bloque frontend.
+3. Despues se integran cambios en `develop`.
+4. Se prueban flujos reales:
+   - login
+   - usuarios
+   - estudiantes
+   - movimientos
+   - dentro del campus
+   - historial
+5. Solo despues de esa validacion se considera merge a `main`.
+
+### Definition of done para frontend
+Un bloque frontend se considera listo cuando:
+- se ve bien en la pantalla
+- no rompe otros modulos
+- respeta roles
+- muestra mensajes claros
+- funciona con datos reales del backend
+- fue probado manualmente por quien lo hizo
+
 ## Pruebas
 Comandos genericos:
 ```bash
