@@ -48,15 +48,20 @@
       <div class="status-bar">
         <div class="status-block">
           <span class="status-label">Sesion</span>
-          <strong id="session-role">Sin iniciar</strong>
+          <strong id="session-role">Sesion cerrada</strong>
+          <span id="session-state" class="status-chip muted">Sin autenticar</span>
         </div>
         <div class="status-block">
           <span class="status-label">Token</span>
-          <strong id="session-token">No disponible</strong>
+          <strong id="session-token">Sin token</strong>
+          <span id="session-token-state" class="status-chip muted">No validado</span>
         </div>
         <div class="status-block role-block">
           <span class="status-label">Permisos activos</span>
           <strong id="session-permissions">Inicia sesion para ver tus permisos</strong>
+          <div id="session-capabilities" class="capability-list">
+            <span class="capability-pill muted">Sin permisos</span>
+          </div>
         </div>
       </div>
     </section>
@@ -90,7 +95,10 @@
           <p class="eyebrow">Resumen operativo</p>
           <h2>Lectura rapida del sistema</h2>
         </div>
-        <span id="dashboard-status" class="table-meta">Esperando datos</span>
+        <div class="summary-status">
+          <span id="dashboard-status" class="table-meta">Esperando datos</span>
+          <span id="dashboard-role-pill" class="role-pill muted">Sin rol</span>
+        </div>
       </div>
       <div class="summary-grid">
         <article class="summary-panel">
@@ -124,7 +132,7 @@
         </form>
       </article>
 
-      <article class="card">
+      <article id="profile-panel" class="card">
         <h2>Perfil</h2>
         <div class="button-row">
           <button id="profile-btn" type="button">Ver /auth/me</button>
@@ -162,7 +170,7 @@
               <option value="CONSULTA">CONSULTA</option>
             </select>
           </label>
-          <div class="button-row">
+          <div class="button-row form-actions form-actions-users">
             <button id="search-user-btn" type="button" class="ghost">Buscar usuario</button>
             <button type="submit">Crear usuario</button>
             <button id="update-user-btn" type="button" class="ghost">Editar usuario</button>
@@ -244,22 +252,16 @@
             <input name="vigencia" type="checkbox" checked>
             <span>Vigente</span>
           </label>
-          <div class="button-row span-two">
+          <div class="button-row form-actions form-actions-students span-two">
             <button id="search-student-btn" type="button" class="ghost">Buscar estudiante</button>
             <button type="submit">Registrar primer ingreso</button>
             <button id="update-student-btn" type="button" class="ghost">Editar estudiante</button>
             <button id="delete-student-btn" type="button" class="ghost danger">Eliminar estudiante</button>
           </div>
         </form>
-        <div class="next-step-card">
-          <p class="eyebrow">Siguiente paso</p>
-          <p id="student-next-step" class="next-step-copy">
-            Busca por documento o placa. Si lo encontramos, cargaremos el formulario para editarlo o verificarlo.
-          </p>
-        </div>
       </article>
 
-      <article class="card role-authenticated">
+      <article id="verify-panel" class="card role-authenticated">
         <h2>Verificar estudiante</h2>
         <form id="document-form" class="form-stack">
           <label>
@@ -270,7 +272,7 @@
         </form>
       </article>
 
-      <article class="card role-admin-guard">
+      <article id="movement-panel" class="card role-admin-guard">
         <h2>Registrar movimiento</h2>
         <form id="movement-form" class="form-stack">
           <label>
@@ -403,3 +405,13 @@
   <script src="/app.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+

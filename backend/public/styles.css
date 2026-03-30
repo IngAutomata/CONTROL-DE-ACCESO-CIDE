@@ -267,7 +267,7 @@ body {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(239, 226, 204, 0.72);
+  color: rgba(112, 94, 63, 0.72);
 }
 
 .hero h1,
@@ -367,6 +367,7 @@ body {
   grid-template-columns: repeat(12, 1fr);
   gap: 18px;
   margin-top: 18px;
+  align-items: start;
 }
 
 .card {
@@ -377,6 +378,7 @@ body {
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
+  align-self: start;
 }
 
 .card.wide {
@@ -720,7 +722,7 @@ button.full {
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(239, 226, 204, 0.72);
+  color: rgba(112, 94, 63, 0.72);
 }
 
 .output-head {
@@ -859,4 +861,191 @@ button.full {
     justify-content: stretch;
     flex-direction: column;
   }
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid rgba(38, 79, 58, 0.16);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.status-chip.ok {
+  background: rgba(15, 108, 93, 0.14);
+  color: #0f6c5d;
+}
+
+.status-chip.admin {
+  background: rgba(38, 79, 58, 0.16);
+  color: #173a2b;
+}
+
+.status-chip.guard {
+  background: rgba(216, 111, 45, 0.16);
+  color: #8e4717;
+}
+
+.status-chip.consulta {
+  background: rgba(67, 95, 133, 0.14);
+  color: #314e75;
+}
+
+.status-chip.muted {
+  color: var(--muted);
+}
+
+.capability-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.capability-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid rgba(38, 79, 58, 0.16);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.capability-pill.admin {
+  background: rgba(38, 79, 58, 0.12);
+  color: #173a2b;
+}
+
+.capability-pill.guard {
+  background: rgba(216, 111, 45, 0.12);
+  color: #8e4717;
+}
+
+.capability-pill.consulta {
+  background: rgba(67, 95, 133, 0.12);
+  color: #314e75;
+}
+
+.capability-pill.muted {
+  color: var(--muted);
+}
+
+.summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.role-pill.active.admin {
+  background: rgba(38, 79, 58, 0.92);
+}
+
+.role-pill.active.guard {
+  background: rgba(216, 111, 45, 0.9);
+  color: #fff7f0;
+}
+
+.role-pill.active.consulta {
+  background: rgba(67, 95, 133, 0.92);
+  color: #f4f7fb;
+}
+
+.session-summary[data-role="admin"],
+.dashboard-summary[data-role="admin"] .summary-panel {
+  border-color: rgba(38, 79, 58, 0.18);
+  background: linear-gradient(180deg, rgba(229, 238, 214, 0.84), rgba(255, 255, 255, 0.72));
+}
+
+.session-summary[data-role="guard"],
+.dashboard-summary[data-role="guard"] .summary-panel {
+  border-color: rgba(216, 111, 45, 0.2);
+  background: linear-gradient(180deg, rgba(255, 239, 225, 0.84), rgba(255, 255, 255, 0.72));
+}
+
+.session-summary[data-role="consulta"],
+.dashboard-summary[data-role="consulta"] .summary-panel {
+  border-color: rgba(67, 95, 133, 0.2);
+  background: linear-gradient(180deg, rgba(233, 240, 250, 0.88), rgba(255, 255, 255, 0.74));
+}
+
+.session-summary[data-role="guest"],
+.dashboard-summary[data-role="guest"] .summary-panel {
+  border-color: rgba(95, 111, 97, 0.16);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+
+.form-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.form-actions button {
+  width: 100%;
+  min-height: 56px;
+}
+
+.form-actions-users {
+  max-width: 430px;
+}
+
+.form-actions-students {
+  margin-top: 6px;
+}
+
+.dashboard-summary .eyebrow,
+.summary-panel .eyebrow,
+.guided-search .eyebrow {
+  color: rgba(112, 94, 63, 0.78);
+}
+
+@media (max-width: 640px) {
+  .form-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions-users {
+    max-width: none;
+  }
+}
+
+
+@media (min-width: 981px) {
+  #login-panel,
+  #profile-panel,
+  #movement-panel,
+  #monitoreo-panel,
+  #usuarios-panel,
+  #verify-panel {
+    grid-column: span 6;
+  }
+
+  #login-panel { order: 1; }
+  #profile-panel { order: 2; }
+  #movement-panel { order: 3; }
+  #monitoreo-panel { order: 4; }
+  #usuarios-panel { order: 5; }
+  #verify-panel { order: 6; }
+  #estudiantes-panel { order: 7; }
+}
+
+.form-readonly input:disabled,
+.form-readonly select:disabled {
+  background: #eef2e5;
+  color: #536153;
+  cursor: not-allowed;
+}
+
+.form-readonly label {
+  opacity: 0.92;
 }

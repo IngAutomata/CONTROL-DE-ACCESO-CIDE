@@ -1,7 +1,10 @@
 const output = document.getElementById("output");
 const sessionRole = document.getElementById("session-role");
 const sessionToken = document.getElementById("session-token");
+const sessionState = document.getElementById("session-state");
+const sessionTokenState = document.getElementById("session-token-state");
 const sessionPermissions = document.getElementById("session-permissions");
+const sessionCapabilities = document.getElementById("session-capabilities");
 const sessionSummaryCopy = document.getElementById("session-summary-copy");
 const roleBadges = document.getElementById("role-badges");
 const studentSearchHint = document.getElementById("student-search-hint");
@@ -14,6 +17,7 @@ const metricStudents = document.getElementById("metric-students");
 const metricUsers = document.getElementById("metric-users");
 const metricLastMovement = document.getElementById("metric-last-movement");
 const dashboardStatus = document.getElementById("dashboard-status");
+const dashboardRolePill = document.getElementById("dashboard-role-pill");
 const dashboardCopy = document.getElementById("dashboard-copy");
 const dashboardPriority = document.getElementById("dashboard-priority");
 const alerts = document.getElementById("alerts");
@@ -30,12 +34,24 @@ const usersMeta = document.getElementById("users-meta");
 const studentsMeta = document.getElementById("students-meta");
 const insideMeta = document.getElementById("inside-meta");
 const movementsMeta = document.getElementById("movements-meta");
+const sessionSummary = document.getElementById("session-summary");
+const dashboardSummary = document.querySelector(".dashboard-summary");
 
 let authToken = localStorage.getItem("access_token") || "";
 let currentUser = JSON.parse(localStorage.getItem("auth_user") || "null");
 const loginForm = document.getElementById("login-form");
 const userForm = document.getElementById("user-form");
 const studentForm = document.getElementById("student-form");
+const documentForm = document.getElementById("document-form");
+const movementForm = document.getElementById("movement-form");
+const studentSubmitButton = studentForm.querySelector("button[type=\"submit\"]");
+const searchStudentButton = document.getElementById("search-student-btn");
+const updateStudentButton = document.getElementById("update-student-btn");
+const deleteStudentButton = document.getElementById("delete-student-btn");
+const searchUserButton = document.getElementById("search-user-btn");
+const updateUserButton = document.getElementById("update-user-btn");
+const deleteUserButton = document.getElementById("delete-user-btn");
+const usersListButton = document.getElementById("users-btn");
 let selectedUsername = "";
 let selectedStudentDocumento = "";
 let pendingConfirmAction = null;
@@ -44,52 +60,183 @@ let cachedStudents = [];
 let cachedInsideCampus = [];
 let cachedMovements = [];
 let activeStudentSearchMode = "documento";
+let studentFormMode = "create";
 const allRoleLabels = ["ADMIN", "GUARDA", "CONSULTA"];
 
 const roleCapabilities = {
   ADMIN: {
-    summary: "Gestion completa de usuarios, estudiantes, monitoreo y consultas del sistema.",
-    permissions: "Usuarios, estudiantes, monitoreo y acciones sensibles",
+    summary: "Gestion completa de usuarios, estudiantes, monitoreo y decisiones sensibles del sistema.",
+    permissions: "Control total del sistema",
     active: ["ADMIN", "GUARDA", "CONSULTA"],
+    sessionState: "Control total habilitado",
+    tokenState: "JWT administrativo validado",
+    dashboardLabel: "Modo ADMIN activo",
+    dashboardPriority: "Prioriza revisar usuarios, monitoreo y consistencia general del sistema.",
+    capabilityTags: ["Usuarios", "Estudiantes", "Monitoreo", "Acciones sensibles"],
+    tone: "admin",
   },
   GUARDA: {
-    summary: "Operacion de porteria: registrar estudiantes, verificar datos y consultar monitoreo.",
-    permissions: "Registro, verificacion y monitoreo",
+    summary: "Operacion de porteria enfocada en registro, verificacion rapida y monitoreo del campus.",
+    permissions: "Operacion de porteria",
     active: ["GUARDA", "CONSULTA"],
+    sessionState: "Porteria operativa",
+    tokenState: "JWT operativo validado",
+    dashboardLabel: "Modo GUARDA operativo",
+    dashboardPriority: "Prioriza validar estudiantes, registrar movimientos y vigilar presencia en campus.",
+    capabilityTags: ["Registro", "Verificacion", "Monitoreo"],
+    tone: "guard",
   },
   CONSULTA: {
-    summary: "Modo de consulta: verificar informacion y revisar estudiantes en campus sin modificar datos.",
-    permissions: "Solo lectura operativa",
+    summary: "Modo de consulta para revisar informacion y monitoreo sin modificar registros.",
+    permissions: "Lectura operativa",
     active: ["CONSULTA"],
+    sessionState: "Consulta en solo lectura",
+    tokenState: "JWT de lectura validado",
+    dashboardLabel: "Modo CONSULTA en lectura",
+    dashboardPriority: "Prioriza revisar estados, historial y datos visibles sin intervenir registros.",
+    capabilityTags: ["Consulta", "Historial", "Dentro del campus"],
+    tone: "consulta",
   },
 };
 
+function isAdmin() {
+  return currentUser?.role === "ADMIN";
+}
+
+function isGuard() {
+  return currentUser?.role === "GUARDA";
+}
+
+function isConsulta() {
+  return currentUser?.role === "CONSULTA";
+}
+
+function canManageUsers() {
+  return isAdmin();
+}
+
+function canOperateStudents() {
+  return isAdmin() || isGuard();
+}
+
+function canEditStudents() {
+  return isAdmin() || isGuard();
+}
+
+function canDeleteStudents() {
+  return isAdmin();
+}
+
+function canReadData() {
+  return Boolean(authToken) && (isAdmin() || isGuard() || isConsulta());
+}
+
+function getStudentDataFields() {
+  return [
+    studentForm.elements.documento,
+    studentForm.elements.qr_uid,
+    studentForm.elements.nombre,
+    studentForm.elements.carrera,
+    studentForm.elements.placa,
+    studentForm.elements.color,
+    studentForm.elements.vigencia,
+  ].filter(Boolean);
+}
+
+function setStudentFieldsDisabled(disabled) {
+  getStudentDataFields().forEach((field) => {
+    field.disabled = disabled;
+  });
+
+  studentForm.classList.toggle("form-readonly", disabled && Boolean(selectedStudentDocumento));
+}
+
+function setStudentFormMode(mode = "create") {
+  studentFormMode = mode;
+
+  if (mode === "edit") {
+    setStudentFieldsDisabled(!canEditStudents());
+  } else if (mode === "view") {
+    setStudentFieldsDisabled(true);
+  } else {
+    setStudentFieldsDisabled(!canOperateStudents());
+  }
+
+  if (studentSubmitButton) {
+    studentSubmitButton.textContent = mode === "edit" ? "Guardar cambios" : "Registrar primer ingreso";
+    studentSubmitButton.disabled = mode === "view" || !canOperateStudents();
+    studentSubmitButton.hidden = !canOperateStudents();
+  }
+
+  if (searchStudentButton) {
+    searchStudentButton.hidden = !canOperateStudents();
+    searchStudentButton.disabled = !canOperateStudents();
+  }
+
+  if (updateStudentButton) {
+    updateStudentButton.hidden = !canEditStudents();
+    updateStudentButton.disabled = !selectedStudentDocumento || !canEditStudents() || mode === "edit";
+  }
+
+  if (deleteStudentButton) {
+    deleteStudentButton.hidden = !canDeleteStudents();
+    deleteStudentButton.disabled = !selectedStudentDocumento || !canDeleteStudents();
+  }
+}
+
+function clearUserFormState() {
+  userForm.reset();
+  selectedUsername = "";
+}
+
+function clearStudentFormState() {
+  studentForm.reset();
+  selectedStudentDocumento = "";
+  setStudentFormMode("create");
+  updateStudentSearchMode("documento");
+}
+
+function clearOperationalForms() {
+  clearUserFormState();
+  clearStudentFormState();
+  documentForm.reset();
+  movementForm.reset();
+}
+
 function refreshSessionUI() {
-  sessionRole.textContent = currentUser ? `${currentUser.username} / ${currentUser.role}` : "Sin iniciar";
-  sessionToken.textContent = authToken ? "Disponible" : "No disponible";
   const roleInfo = currentUser ? roleCapabilities[currentUser.role] : null;
+  const tone = roleInfo?.tone || "guest";
+
+  sessionRole.textContent = currentUser ? `${currentUser.username} / ${currentUser.role}` : "Sesion cerrada";
+  sessionToken.textContent = authToken ? "Token presente" : "Sin token";
+  sessionState.textContent = roleInfo ? roleInfo.sessionState : "Sin autenticar";
+  sessionTokenState.textContent = roleInfo ? roleInfo.tokenState : "No validado";
   sessionPermissions.textContent = roleInfo ? roleInfo.permissions : "Inicia sesion para ver tus permisos";
   sessionSummaryCopy.textContent = roleInfo
     ? roleInfo.summary
-    : "Sin sesion activa. Inicia con admin, guarda o consulta.";
-  roleBadges.innerHTML = allRoleLabels.map((role) => `
-    <span class="role-pill ${roleInfo && roleInfo.active.includes(role) ? "active" : "muted"}">${role}</span>
-  `).join("");
+    : "Sin sesion activa. Inicia con admin, guarda o consulta para cargar permisos y monitoreo.";
+  sessionCapabilities.innerHTML = roleInfo
+    ? roleInfo.capabilityTags.map((tag) => `<span class="capability-pill ${tone}">${tag}</span>`).join("")
+    : '<span class="capability-pill muted">Sin permisos</span>';
+  roleBadges.innerHTML = allRoleLabels.map((role) => `<span class="role-pill ${roleInfo && roleInfo.active.includes(role) ? `active ${tone}` : "muted"}">${role}</span>`).join("");
+
+  sessionSummary.dataset.role = tone;
+  dashboardSummary.dataset.role = tone;
+  sessionState.className = `status-chip ${roleInfo ? tone : "muted"}`;
+  sessionTokenState.className = `status-chip ${roleInfo ? "ok" : "muted"}`;
+
   syncRoleVisibility();
   refreshDashboard();
 }
 
 function syncRoleVisibility() {
   const role = currentUser?.role || "";
-  const isAdmin = role === "ADMIN";
-  const isGuard = role === "GUARDA";
-  const isConsulta = role === "CONSULTA";
   const isAuthenticated = Boolean(authToken);
-  const canOperate = isAdmin || isGuard;
-  const canRead = isAuthenticated && (isAdmin || isGuard || isConsulta);
+  const canOperate = canOperateStudents();
+  const canRead = canReadData();
 
   document.querySelectorAll(".role-admin-only").forEach((panel) => {
-    panel.hidden = !isAdmin;
+    panel.hidden = role !== "ADMIN";
   });
 
   document.querySelectorAll(".role-admin-guard").forEach((panel) => {
@@ -104,28 +251,28 @@ function syncRoleVisibility() {
     panel.hidden = !isAuthenticated;
   });
 
-  document.querySelectorAll("#update-user-btn, #delete-user-btn, #users-btn, [data-user-action=\"edit\"], [data-user-action=\"delete\"]")
-    .forEach((button) => {
-      button.disabled = !isAdmin;
-    });
+  if (searchUserButton) searchUserButton.hidden = !canManageUsers();
+  if (updateUserButton) updateUserButton.hidden = !canManageUsers();
+  if (deleteUserButton) deleteUserButton.hidden = !canManageUsers();
+  if (usersListButton) usersListButton.hidden = !canManageUsers();
 
-  document.querySelectorAll("#update-student-btn, #delete-student-btn, [data-student-action=\"edit\"], [data-student-action=\"delete\"]")
-    .forEach((button) => {
-      button.disabled = !isAdmin;
-    });
+  setStudentFormMode(studentFormMode);
 
-  const studentSubmit = studentForm.querySelector("button[type=\"submit\"]");
-  if (studentSubmit) {
-    studentSubmit.disabled = !canOperate;
-  }
+  document.querySelectorAll('[data-user-action="edit"], [data-user-action="delete"]').forEach((button) => {
+    button.hidden = !canManageUsers();
+  });
 
-  const searchStudentButton = document.getElementById("search-student-btn");
-  if (searchStudentButton) {
-    searchStudentButton.disabled = !canOperate;
-  }
+  document.querySelectorAll('[data-student-action="edit"]').forEach((button) => {
+    button.hidden = !canEditStudents();
+  });
 
-  const movementSubmit = document.querySelector("#movement-form button[type=\"submit\"]");
+  document.querySelectorAll('[data-student-action="delete"]').forEach((button) => {
+    button.hidden = !canDeleteStudents();
+  });
+
+  const movementSubmit = movementForm.querySelector('button[type="submit"]');
   if (movementSubmit) {
+    movementSubmit.hidden = !canOperate;
     movementSubmit.disabled = !canOperate;
   }
 
@@ -144,7 +291,6 @@ function syncRoleVisibility() {
     movementsButton.disabled = !canRead;
   }
 }
-
 function normalizeErrorPayload(error) {
   if (!error) {
     return { error: "Ocurrio un error desconocido" };
@@ -278,6 +424,7 @@ function buildStudentPayload(formData) {
 }
 
 function setStudentNextStep(message) {
+  if (!studentNextStep) return;
   studentNextStep.textContent = message;
 }
 
@@ -285,40 +432,46 @@ function formatMovementSummary(student) {
   if (!student) return "Sin movimiento reciente";
   const movement = student.tipo || student.ultimo_movimiento || "ENTRADA";
   const name = student.nombre || student.documento || "Registro";
-  return `${movement} Â· ${name}`;
+  return `${movement}  -  ${name}`;
 }
 
 function refreshDashboard() {
+  const roleInfo = currentUser ? roleCapabilities[currentUser.role] : null;
+  const tone = roleInfo?.tone || "guest";
+
   metricUsers.textContent = String(cachedUsers.length || 0);
   metricStudents.textContent = String(cachedStudents.length || 0);
   metricInside.textContent = String(cachedInsideCampus.length || 0);
   metricLastMovement.textContent = formatMovementSummary(cachedMovements[0] || cachedInsideCampus[0]);
+  dashboardRolePill.className = `role-pill ${roleInfo ? `active ${tone}` : "muted"}`;
+  dashboardRolePill.textContent = currentUser?.role || "Sin rol";
+  dashboardSummary.dataset.role = tone;
 
   if (!currentUser) {
-    dashboardStatus.textContent = "Sin sesion";
-    dashboardCopy.textContent = "Inicia sesion y carga tablas para ver un estado consolidado del sistema.";
-    dashboardPriority.textContent = "Comienza con login y luego consulta estudiantes o monitoreo.";
+    dashboardStatus.textContent = "Sin sesion validada";
+    dashboardCopy.textContent = "Inicia sesion para cargar estudiantes, monitoreo y actividad reciente segun tu rol.";
+    dashboardPriority.textContent = "Comienza con login y luego valida tu rol antes de operar la interfaz.";
     return;
   }
 
-  dashboardStatus.textContent = `${currentUser.role} activo`;
+  dashboardStatus.textContent = roleInfo.dashboardLabel;
 
   if (currentUser.role === "ADMIN") {
-    dashboardCopy.textContent = `Tienes ${cachedUsers.length} usuario(s), ${cachedStudents.length} estudiante(s) y ${cachedInsideCampus.length} presencia(s) activas visibles en la consola.`;
+    dashboardCopy.textContent = `Tienes ${cachedUsers.length} usuario(s), ${cachedStudents.length} estudiante(s), ${cachedInsideCampus.length} presencia(s) activas y un ultimo evento visible de ${metricLastMovement.textContent}.`;
     dashboardPriority.textContent = cachedUsers.length
-      ? "Prioriza revisar monitoreo y mantener actualizada la base de usuarios."
-      : "Carga el listado de usuarios para completar la vista operativa del administrador.";
+      ? roleInfo.dashboardPriority
+      : "Carga usuarios para completar la foto operativa y luego revisa monitoreo y actividad reciente.";
     return;
   }
 
   if (currentUser.role === "GUARDA") {
-    dashboardCopy.textContent = `${cachedInsideCampus.length} estudiante(s) aparecen dentro del campus y ${cachedStudents.length} registro(s) estan disponibles para consulta operativa.`;
-    dashboardPriority.textContent = "Prioriza buscar por documento o placa y registrar movimientos en tiempo real.";
+    dashboardCopy.textContent = `Hay ${cachedInsideCampus.length} estudiante(s) dentro del campus, ${cachedStudents.length} registro(s) visibles y el ultimo evento visible es ${metricLastMovement.textContent}.`;
+    dashboardPriority.textContent = roleInfo.dashboardPriority;
     return;
   }
 
-  dashboardCopy.textContent = `${cachedStudents.length} estudiante(s) y ${cachedInsideCampus.length} presencia(s) visibles para consulta.`;
-  dashboardPriority.textContent = "Usa la vista de consulta para verificar informacion sin modificar registros.";
+  dashboardCopy.textContent = `Consulta ${cachedStudents.length} estudiante(s), ${cachedInsideCampus.length} presencia(s) activas y el historial reciente sin modificar informacion.`;
+  dashboardPriority.textContent = roleInfo.dashboardPriority;
 }
 
 function flashStudentFormReady() {
@@ -359,7 +512,7 @@ function fillUserForm(user) {
   selectedUsername = user.username || "";
 }
 
-function fillStudentForm(student) {
+function fillStudentForm(student, { mode = "view" } = {}) {
   studentForm.elements.lookup_documento.value = student.documento || "";
   studentForm.elements.lookup_placa.value = student.placa || "";
   studentForm.elements.documento.value = student.documento || "";
@@ -370,7 +523,8 @@ function fillStudentForm(student) {
   studentForm.elements.color.value = student.color || "";
   studentForm.elements.vigencia.checked = Boolean(student.vigencia);
   selectedStudentDocumento = student.documento || "";
-  setStudentNextStep(`Estudiante cargado. Revisa los datos y decide si deseas editar, verificar o eliminar a ${student.nombre || "este registro"}.`);
+  setStudentFormMode(mode);
+  setStudentNextStep(`Estudiante cargado. ${mode === "edit" ? "Puedes ajustar los datos y guardar cambios." : "Pulsa Editar estudiante para habilitar cambios."}`);
   flashStudentFormReady();
   refreshDashboard();
 }
@@ -381,6 +535,7 @@ function resetUserSelection() {
 
 function resetStudentSelection() {
   selectedStudentDocumento = "";
+  setStudentFormMode("create");
   setStudentNextStep("Busca por documento o placa. Si lo encontramos, cargaremos el formulario para editarlo o verificarlo.");
   refreshDashboard();
 }
@@ -398,6 +553,7 @@ function clearSessionState() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("auth_user");
   resetCachedData();
+  clearOperationalForms();
 }
 
 function escapeHtml(value) {
@@ -446,8 +602,8 @@ function renderUsersTable(users = []) {
             <td>
               <div class="row-actions">
                 <button type="button" class="ghost mini-btn" data-user-action="view" data-username="${escapeHtml(user.username)}">Ver</button>
-                <button type="button" class="ghost mini-btn" data-user-action="edit" data-username="${escapeHtml(user.username)}">Editar</button>
-                <button type="button" class="danger mini-btn" data-user-action="delete" data-username="${escapeHtml(user.username)}">Eliminar</button>
+                ${canManageUsers() ? `<button type="button" class="ghost mini-btn" data-user-action="edit" data-username="${escapeHtml(user.username)}">Editar</button>` : ""}
+                ${canManageUsers() ? `<button type="button" class="danger mini-btn" data-user-action="delete" data-username="${escapeHtml(user.username)}">Eliminar</button>` : ""}
               </div>
             </td>
           </tr>
@@ -530,8 +686,8 @@ function renderStudentsTable(students = []) {
             <td>
               <div class="row-actions">
                 <button type="button" class="ghost mini-btn" data-student-action="view" data-documento="${escapeHtml(student.documento)}">Ver</button>
-                <button type="button" class="ghost mini-btn" data-student-action="edit" data-documento="${escapeHtml(student.documento)}">Editar</button>
-                <button type="button" class="danger mini-btn" data-student-action="delete" data-documento="${escapeHtml(student.documento)}">Eliminar</button>
+                ${canEditStudents() ? `<button type="button" class="ghost mini-btn" data-student-action="edit" data-documento="${escapeHtml(student.documento)}">Editar</button>` : ""}
+                ${canDeleteStudents() ? `<button type="button" class="danger mini-btn" data-student-action="delete" data-documento="${escapeHtml(student.documento)}">Eliminar</button>` : ""}
               </div>
             </td>
           </tr>
@@ -578,8 +734,8 @@ function renderInsideCampusTable(students = []) {
             <td>
               <div class="row-actions">
                 <button type="button" class="ghost mini-btn" data-student-action="view" data-documento="${escapeHtml(student.documento)}">Ver</button>
-                <button type="button" class="ghost mini-btn" data-student-action="edit" data-documento="${escapeHtml(student.documento)}">Editar</button>
-                <button type="button" class="danger mini-btn" data-student-action="delete" data-documento="${escapeHtml(student.documento)}">Eliminar</button>
+                ${canEditStudents() ? `<button type="button" class="ghost mini-btn" data-student-action="edit" data-documento="${escapeHtml(student.documento)}">Editar</button>` : ""}
+                ${canDeleteStudents() ? `<button type="button" class="danger mini-btn" data-student-action="delete" data-documento="${escapeHtml(student.documento)}">Eliminar</button>` : ""}
               </div>
             </td>
           </tr>
@@ -898,7 +1054,7 @@ document.getElementById("update-user-btn").addEventListener("click", async () =>
   }
 
   await runWithConfirmation(
-    "Se va a editar este usuario. Â¿Estas seguro de que deseas modificarlo?",
+    "Se va a editar este usuario. ¿Estas seguro de que deseas modificarlo?",
     {
       username_actual: lookupUsername,
       username_nuevo: formData.get("username"),
@@ -935,7 +1091,7 @@ document.getElementById("delete-user-btn").addEventListener("click", async () =>
   }
 
   await runWithConfirmation(
-    "Se va a eliminar este usuario. Â¿Estas seguro de que deseas continuar?",
+    "Se va a eliminar este usuario. ¿Estas seguro de que deseas continuar?",
     {
       username: lookupUsername,
       role: userForm.elements.role.value,
@@ -961,7 +1117,7 @@ document.getElementById("delete-user-btn").addEventListener("click", async () =>
 
 document.getElementById("student-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!ensureAdminOrGuard("registrar estudiantes")) return;
+  if (!ensureAdminOrGuard(studentFormMode === "edit" ? "guardar cambios de estudiantes" : "registrar estudiantes")) return;
 
   const form = event.currentTarget;
   const formData = new FormData(form);
@@ -969,10 +1125,52 @@ document.getElementById("student-form").addEventListener("submit", async (event)
 
   if (!/^[A-Z]{3}\d{2}[A-Z]$/.test(payload.placa)) {
     printResult(
-      "Error registrando estudiante",
+      studentFormMode === "edit" ? "Error guardando cambios" : "Error registrando estudiante",
       { error: "La placa debe tener formato ABC12D" },
       true
     );
+    return;
+  }
+
+  if (studentFormMode === "edit") {
+    const lookupDocumento = (studentForm.elements.lookup_documento.value || selectedStudentDocumento || "").trim();
+
+    if (!lookupDocumento) {
+      printResult("Error guardando cambios", { error: "Debes buscar primero un estudiante antes de editarlo" }, true);
+      return;
+    }
+
+    await runWithConfirmation(
+      "Se van a guardar cambios de este estudiante. ¿Deseas continuar?",
+      {
+        documento_actual: lookupDocumento,
+        documento_nuevo: payload.documento,
+        nombre: payload.nombre,
+        carrera: payload.carrera,
+        placa: payload.placa,
+        color: payload.color,
+        vigencia: payload.vigencia ? "Activa" : "Inactiva",
+      },
+      async () => {
+        try {
+          const data = await apiFetch(`/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+
+          fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color }, { mode: "view" });
+          printResult("Cambios guardados", data);
+          await refreshStudentsTableData({ silent: true });
+          await refreshInsideCampusTableData({ silent: true });
+          await refreshMovementsTableData({ silent: true });
+          showAlert("success", "Cambios guardados", `Se actualizo el estudiante ${payload.nombre}.`);
+        } catch (error) {
+          printResult("Error guardando cambios", error, true);
+          showAlert("error", "No se pudo guardar el estudiante", normalizeErrorPayload(error).error || "Revisa los datos del estudiante.");
+        }
+      }
+    );
+
     return;
   }
 
@@ -983,16 +1181,13 @@ document.getElementById("student-form").addEventListener("submit", async (event)
     });
 
     printResult("Estudiante registrado", data);
-    form.reset();
-    fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color });
+    fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color }, { mode: "view" });
     await refreshStudentsTableData({ silent: true });
     await refreshInsideCampusTableData({ silent: true });
     await refreshMovementsTableData({ silent: true });
-    setStudentNextStep(`Registro completado. ${payload.nombre} ya quedo disponible para futuras busquedas por documento o placa.`);
     showAlert("success", "Estudiante registrado", `Se registro el estudiante ${payload.nombre}.`);
   } catch (error) {
     printResult("Error registrando estudiante", error, true);
-    setStudentNextStep("No se pudo registrar. Ajusta documento, QR o placa y vuelve a intentarlo.");
     showAlert("error", "No se pudo registrar el estudiante", normalizeErrorPayload(error).error || "Revisa documento, QR y placa.");
   }
 });
@@ -1021,11 +1216,14 @@ document.getElementById("search-student-btn").addEventListener("click", async ()
       ? await apiFetch(`/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`)
       : await apiFetch(`/estudiantes/placa/${encodeURIComponent(lookupPlaca)}`);
 
-    fillStudentForm(data);
+    fillStudentForm(data, { mode: "view" });
     printResult("Estudiante encontrado", data);
-    showAlert("info", "Estudiante encontrado", `Se cargaron los datos de ${data.nombre}.`);
+    showAlert("info", "Estudiante encontrado", `Se cargaron los datos de ${data.nombre}. Pulsa Editar estudiante para habilitar cambios.`);
   } catch (error) {
     printResult("Error buscando estudiante", error, true);
+    resetStudentSelection();
+    setStudentFormMode("create");
+
     if (shouldSearchByDocumento) {
       studentForm.elements.documento.value = lookupDocumento;
       studentForm.elements.lookup_placa.value = "";
@@ -1041,53 +1239,19 @@ document.getElementById("search-student-btn").addEventListener("click", async ()
 });
 
 document.getElementById("update-student-btn").addEventListener("click", async () => {
-  if (!ensureAdmin("editar estudiantes")) return;
+  if (!ensureAdminOrGuard("editar estudiantes")) return;
 
-  const formData = new FormData(studentForm);
-  const payload = buildStudentPayload(formData);
   const lookupDocumento = (studentForm.elements.lookup_documento.value || selectedStudentDocumento || "").trim();
 
   if (!lookupDocumento) {
-    printResult("Error editando estudiante", { error: "Debes buscar primero un estudiante por documento o placa" }, true);
+    printResult("Edicion no disponible", { error: "Debes buscar primero un estudiante por documento o placa" }, true);
     return;
   }
 
-  if (!/^[A-Z]{3}\d{2}[A-Z]$/.test(payload.placa)) {
-    printResult("Error editando estudiante", { error: "La placa debe tener formato ABC12D" }, true);
-    return;
-  }
-
-  await runWithConfirmation(
-    "Se va a editar este estudiante. Â¿Estas seguro de que deseas modificarlo?",
-    {
-      documento_actual: lookupDocumento,
-      documento_nuevo: payload.documento,
-      nombre: payload.nombre,
-      carrera: payload.carrera,
-      placa: payload.placa,
-      color: payload.color,
-      vigencia: payload.vigencia ? "Activa" : "Inactiva",
-    },
-    async () => {
-      try {
-        const data = await apiFetch(`/admin/estudiantes/documento/${encodeURIComponent(lookupDocumento)}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-
-        fillStudentForm({ ...payload, ...data.estudiante, placa: payload.placa, color: payload.color });
-        printResult("Estudiante actualizado", data);
-        await refreshStudentsTableData({ silent: true });
-        await refreshInsideCampusTableData({ silent: true });
-        setStudentNextStep(`Actualizacion completada. ${payload.nombre} ya quedo al dia en la base de datos.`);
-        showAlert("success", "Estudiante actualizado", `Se actualizo el estudiante ${payload.nombre}.`);
-      } catch (error) {
-        printResult("Error editando estudiante", error, true);
-        setStudentNextStep("No se pudo actualizar. Revisa los datos cargados y vuelve a intentar.");
-        showAlert("error", "No se pudo actualizar el estudiante", normalizeErrorPayload(error).error || "Revisa los datos del estudiante.");
-      }
-    }
-  );
+  setStudentFormMode("edit");
+  setStudentNextStep("Edicion habilitada. Ajusta los datos y usa Guardar cambios para confirmar.");
+  studentForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  showAlert("info", "Edicion habilitada", "Ahora puedes modificar los campos del estudiante y guardar cambios.");
 });
 
 document.getElementById("delete-student-btn").addEventListener("click", async () => {
@@ -1101,7 +1265,7 @@ document.getElementById("delete-student-btn").addEventListener("click", async ()
   }
 
   await runWithConfirmation(
-    "Se va a eliminar este estudiante. Â¿Estas seguro de que deseas continuar?",
+    "Se va a eliminar este estudiante. ¿Estas seguro de que deseas continuar?",
     {
       documento: lookupDocumento,
       nombre: studentForm.elements.nombre.value,
@@ -1114,15 +1278,12 @@ document.getElementById("delete-student-btn").addEventListener("click", async ()
         });
 
         printResult("Estudiante eliminado", data);
-        studentForm.reset();
-        resetStudentSelection();
+        clearStudentFormState();
         await refreshStudentsTableData({ silent: true });
         await refreshInsideCampusTableData({ silent: true });
-        setStudentNextStep(`El registro ${lookupDocumento} fue eliminado. Puedes buscar otro estudiante o registrar uno nuevo.`);
         showAlert("success", "Estudiante eliminado", `Se elimino el estudiante ${lookupDocumento}.`);
       } catch (error) {
         printResult("Error eliminando estudiante", error, true);
-        setStudentNextStep("No se pudo eliminar. Recarga el registro y verifica el estado antes de intentarlo otra vez.");
         showAlert("error", "No se pudo eliminar el estudiante", normalizeErrorPayload(error).error || "Intenta de nuevo.");
       }
     }
@@ -1218,10 +1379,11 @@ usersTableWrap.addEventListener("click", async (event) => {
 async function loadStudentIntoForm(documento, intent = "view") {
   try {
     const data = await apiFetch(`/estudiantes/documento/${encodeURIComponent(documento)}`);
-    fillStudentForm(data);
+    const mode = intent === "edit" && canEditStudents() ? "edit" : "view";
+    fillStudentForm(data, { mode });
     printResult("Estudiante encontrado", data);
 
-    if (intent === "edit" && currentUser && ["ADMIN", "GUARDA"].includes(currentUser.role)) {
+    if (["view", "edit"].includes(intent)) {
       studentForm.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
@@ -1284,4 +1446,21 @@ renderEmptyState(movementsTableWrap, movementsMeta, "Consulta movimientos para v
 
 updateStudentSearchMode("documento");
 bootstrapSession();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
