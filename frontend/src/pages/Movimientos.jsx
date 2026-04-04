@@ -8,12 +8,13 @@ function formatDate(value) {
 }
 
 export default function Movimientos() {
-  const { role, token } = useAuth();
+  const { role, apiRequest } = useAuth();
   const [insideCampus, setInsideCampus] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
   const [form, setForm] = useState({ qr_uid: "" });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const canRegister = role === "ADMIN" || role === "GUARDA";
 
   useEffect(() => {
     let cancelled = false;
@@ -22,31 +23,14 @@ export default function Movimientos() {
       setError("");
 
       try {
-        const requests = [
-          fetch("/movimientos/dentro-campus", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ];
-
-        if (role === "ADMIN") {
-          requests.push(
-            fetch("/movimientos", {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          );
-        }
-
-        const responses = await Promise.all(requests);
-        const payloads = await Promise.all(responses.map((response) => response.json()));
-
-        if (!responses.every((response) => response.ok)) {
-          const firstError = payloads.find((payload) => payload.error);
-          throw new Error(firstError?.error || "No se pudo cargar la informacion");
-        }
+        const payloads = await Promise.all([
+          apiRequest("/movimientos/dentro-campus"),
+          apiRequest("/movimientos"),
+        ]);
 
         if (!cancelled) {
           setInsideCampus(payloads[0].estudiantes || []);
-          setAllMovements(payloads[1]?.movimientos || []);
+          setAllMovements(payloads[1].movimientos || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -60,27 +44,23 @@ export default function Movimientos() {
     return () => {
       cancelled = true;
     };
-  }, [role, token, status]);
+  }, [apiRequest, role, status]);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setStatus("");
 
+    if (!canRegister) {
+      setError("Tu rol solo permite consultar movimientos.");
+      return;
+    }
+
     try {
-      const response = await fetch("/movimientos/registrar", {
+      const data = await apiRequest("/movimientos/registrar", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ qr_uid: form.qr_uid }),
       });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "No se pudo registrar el movimiento");
-      }
 
       setStatus(`${data.movimiento.tipo} registrada para ${data.estudiante.nombre}`);
       setForm({ qr_uid: "" });
@@ -97,11 +77,13 @@ export default function Movimientos() {
         <p>
           {role === "ADMIN"
             ? "Como ADMIN puedes registrar movimientos y revisar el historico completo."
-            : "Como GUARDA puedes registrar entradas/salidas y ver quienes estan dentro del campus."}
+            : role === "GUARDA"
+              ? "Como GUARDA puedes registrar entradas/salidas y ver quienes estan dentro del campus."
+              : "Como CONSULTA puedes revisar el estado actual del campus y el historial sin modificar datos."}
         </p>
       </header>
 
-      {(role === "ADMIN" || role === "GUARDA") && (
+      {canRegister && (
         <article className="info-card">
           <h3>Registrar entrada o salida</h3>
           <form className="inline-form" onSubmit={handleSubmit}>
@@ -151,37 +133,35 @@ export default function Movimientos() {
           )}
         </article>
 
-        {role === "ADMIN" && (
-          <article className="info-card">
-            <h3>Historico de movimientos</h3>
-            {allMovements.length === 0 ? (
-              <div className="empty-state">Aun no hay movimientos registrados.</div>
-            ) : (
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Documento</th>
-                      <th>Estudiante</th>
-                      <th>Tipo</th>
+        <article className="info-card">
+          <h3>Historico de movimientos</h3>
+          {allMovements.length === 0 ? (
+            <div className="empty-state">Aun no hay movimientos registrados.</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Documento</th>
+                    <th>Estudiante</th>
+                    <th>Tipo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allMovements.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatDate(item.fecha_hora)}</td>
+                      <td>{item.documento}</td>
+                      <td>{item.nombre}</td>
+                      <td>{item.tipo}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {allMovements.map((item) => (
-                      <tr key={item.id}>
-                        <td>{formatDate(item.fecha_hora)}</td>
-                        <td>{item.documento}</td>
-                        <td>{item.nombre}</td>
-                        <td>{item.tipo}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
       </div>
     </section>
   );

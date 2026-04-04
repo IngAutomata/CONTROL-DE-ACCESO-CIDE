@@ -31,26 +31,22 @@ const summaryByRole = {
 };
 
 export default function Dashboard() {
-  const { role, user, token } = useAuth();
+  const { role, user, apiRequest } = useAuth();
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
   const summary = useMemo(() => summaryByRole[role] || summaryByRole.CONSULTA, [role]);
+  const metricCards = useMemo(() => ([
+    { title: "Usuario activo", value: user?.username || "-", detail: role || "Sin rol", tone: "blue" },
+    { title: "Rol operativo", value: role || "-", detail: "Perfil autenticado", tone: "green" },
+    { title: "Identificador", value: profile?.id || user?.id || "-", detail: "Control de acceso", tone: "orange" },
+  ]), [profile?.id, role, user?.id, user?.username]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadProfile() {
       try {
-        const response = await fetch("/auth/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "No se pudo obtener el perfil");
-        }
+        const data = await apiRequest("/auth/me");
 
         if (!cancelled) {
           setProfile(data);
@@ -67,15 +63,26 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [apiRequest]);
 
   return (
     <section className="page">
       <header className="page__header">
         <p className="eyebrow">Dashboard</p>
-        <h2>{summary.title}</h2>
+        <h2>Bienvenido, {user?.username || "usuario"}.</h2>
         <p>{summary.description}</p>
       </header>
+
+      <div className="stats-grid">
+        {metricCards.map((card) => (
+          <article key={card.title} className={`stat-card stat-card--${card.tone}`}>
+            <div className="stat-card__icon" aria-hidden="true"></div>
+            <h3>{card.title}</h3>
+            <strong>{card.value}</strong>
+            <p>{card.detail}</p>
+          </article>
+        ))}
+      </div>
 
       <div className="cards-grid">
         <article className="info-card">

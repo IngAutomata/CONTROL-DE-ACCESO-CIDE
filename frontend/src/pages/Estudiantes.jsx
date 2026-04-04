@@ -1,15 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 
+const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
+const CAREERS = [
+  "INGENIERIA DE SISTEMAS",
+  "INGENIERIA INDUSTRIAL",
+  "CONTADURIA PUBLICA",
+  "ADMINISTRACION DE EMPRESAS",
+  "DERECHO",
+  "PSICOLOGIA",
+  "TRABAJO SOCIAL",
+  "LICENCIATURA EN PEDAGOGIA INFANTIL",
+  "LICENCIATURA EN LENGUA CASTELLANA E INGLES",
+  "SEGURIDAD Y SALUD EN EL TRABAJO",
+  "ESPECIALIZACION EN GERENCIA DE PROYECTOS",
+];
+
 const initialForm = {
   documento: "",
   qr_uid: "",
   nombre: "",
-  carrera: "",
+  carrera: CAREERS[0],
   placa: "",
   color: "",
   vigencia: true,
 };
+
+function normalizePlate(value) {
+  return (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
 
 function mapStudentToForm(student) {
   if (!student) return initialForm;
@@ -18,35 +37,29 @@ function mapStudentToForm(student) {
     documento: student.documento || "",
     qr_uid: student.qr_uid || "",
     nombre: student.nombre || "",
-    carrera: student.carrera || "",
-    placa: student.placa || "",
+    carrera: student.carrera || CAREERS[0],
+    placa: normalizePlate(student.placa || ""),
     color: student.color || "",
     vigencia: Boolean(student.vigencia),
   };
 }
 
 export default function Estudiantes() {
-  const { token, role } = useAuth();
+  const { apiRequest, role } = useAuth();
   const [students, setStudents] = useState([]);
-  const [lookupDocument, setLookupDocument] = useState("");
+  const [lookupValue, setLookupValue] = useState("");
+  const [lookupMode, setLookupMode] = useState("documento");
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState("crear");
+  const [originalDocumento, setOriginalDocumento] = useState("");
 
   const canManageStudents = useMemo(() => ["ADMIN", "GUARDA"].includes(role), [role]);
 
   async function fetchStudents() {
-    const response = await fetch("/estudiantes", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "No se pudo cargar la lista de estudiantes");
-    }
-
+    const data = await apiRequest("/estudiantes");
     setStudents(data.estudiantes || []);
   }
 
@@ -55,14 +68,7 @@ export default function Estudiantes() {
 
     async function load() {
       try {
-        const response = await fetch("/estudiantes", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "No se pudo cargar estudiantes");
-        }
+        const data = await apiRequest("/estudiantes");
 
         if (!cancelled) {
           setStudents(data.estudiantes || []);
@@ -79,35 +85,39 @@ export default function Estudiantes() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [apiRequest]);
 
   async function handleLookup(event) {
     event.preventDefault();
     setError("");
     setStatus("");
 
-    if (!lookupDocument.trim()) {
-      setError("Debes indicar un documento para buscar.");
+    if (!lookupValue.trim()) {
+      setError(`Debes indicar ${lookupMode === "documento" ? "un documento" : "una placa"} para buscar.`);
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(`/estudiantes/documento/${encodeURIComponent(lookupDocument.trim())}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "No se encontro el estudiante");
-      }
+      const lookupPath = lookupMode === "documento"
+        ? `/estudiantes/documento/${encodeURIComponent(lookupValue.trim())}`
+        : `/estudiantes/placa/${encodeURIComponent(normalizePlate(lookupValue))}`;
+      const data = await apiRequest(lookupPath);
 
       setForm(mapStudentToForm(data));
+      setOriginalDocumento(data.documento || "");
       setCurrentMode("editar");
-      setStatus(`Estudiante ${data.nombre} cargado para edicion.`);
+      setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "edicion" : "consulta"}.`);
     } catch (err) {
       setError(err.message);
+      if (lookupMode === "documento") {
+        setForm((current) => ({ ...current, documento: lookupValue.trim() }));
+      } else {
+        setForm((current) => ({ ...current, placa: normalizePlate(lookupValue) }));
+      }
+      setCurrentMode("crear");
+      setOriginalDocumento("");
     } finally {
       setLoading(false);
     }
@@ -115,30 +125,42 @@ export default function Estudiantes() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (!canManageStudents) {
+      setError("Tu rol solo permite consultar estudiantes.");
+      return;
+    }
+
     setError("");
     setStatus("");
+
+    if (!PLATE_REGEX.test(form.placa)) {
+      setError("La placa debe tener formato ABC12D.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch("/estudiantes/primer-ingreso", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+      const isEditing = currentMode === "editar" && originalDocumento;
+      const endpoint = isEditing
+        ? `/estudiantes/documento/${encodeURIComponent(originalDocumento)}`
+        : "/estudiantes/primer-ingreso";
+      const method = isEditing ? "PUT" : "POST";
+      const data = await apiRequest(endpoint, {
+        method,
         body: JSON.stringify(form),
       });
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "No se pudo guardar el estudiante");
-      }
+      const estudiante = data.estudiante || data;
+      const actionLabel = isEditing ? "actualizado" : "creado";
 
-      const nextMode = currentMode === "editar" ? "actualizado" : "creado";
-      setStatus(`Estudiante ${nextMode} correctamente.`);
+      setStatus(`Estudiante ${actionLabel} correctamente.`);
       setCurrentMode("editar");
-      setForm(mapStudentToForm(data.estudiante));
-      setLookupDocument(data.estudiante.documento || form.documento);
+      setOriginalDocumento(estudiante.documento || form.documento);
+      setLookupMode("documento");
+      setLookupValue(estudiante.documento || form.documento);
+      setForm(mapStudentToForm(estudiante));
       await fetchStudents();
     } catch (err) {
       setError(err.message);
@@ -148,13 +170,18 @@ export default function Estudiantes() {
   }
 
   function handleChange(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => ({
+      ...current,
+      [field]: field === "placa" ? normalizePlate(value) : value,
+    }));
   }
 
   function resetForm() {
     setForm(initialForm);
-    setLookupDocument("");
+    setLookupValue("");
+    setLookupMode("documento");
     setCurrentMode("crear");
+    setOriginalDocumento("");
     setStatus("");
     setError("");
   }
@@ -163,27 +190,32 @@ export default function Estudiantes() {
     <section className="page">
       <header className="page__header">
         <p className="eyebrow">Estudiantes</p>
-        <h2>Crear o modificar estudiante</h2>
+        <h2>{canManageStudents ? "Crear, buscar y actualizar estudiantes" : "Consulta de estudiantes"}</h2>
         <p>
           {canManageStudents
-            ? "ADMIN y GUARDA pueden registrar un estudiante desde cero o cargarlo por documento para actualizar sus datos."
-            : "Solo tienes permiso de consulta sobre la informacion de estudiantes."}
+            ? "ADMIN y GUARDA pueden registrar estudiantes nuevos o cargarlos por documento/placa para actualizar sus datos."
+            : "CONSULTA puede listar y buscar estudiantes, pero sin modificar registros."}
         </p>
       </header>
 
       <div className="cards-grid">
         <article className="info-card">
-          <h3>{currentMode === "editar" ? "Modificar estudiante existente" : "Crear estudiante nuevo"}</h3>
+          <h3>{currentMode === "editar" ? "Registro cargado" : "Registrar o buscar estudiante"}</h3>
 
           <form className="inline-form" onSubmit={handleLookup}>
+            <select value={lookupMode} onChange={(event) => setLookupMode(event.target.value)}>
+              <option value="documento">Buscar por documento</option>
+              <option value="placa">Buscar por placa</option>
+            </select>
+
             <input
               type="text"
-              placeholder="Buscar por documento"
-              value={lookupDocument}
-              onChange={(event) => setLookupDocument(event.target.value)}
+              placeholder={lookupMode === "documento" ? "Documento" : "Placa ABC12D"}
+              value={lookupValue}
+              onChange={(event) => setLookupValue(lookupMode === "placa" ? normalizePlate(event.target.value) : event.target.value)}
             />
             <button type="submit" disabled={loading}>
-              Buscar
+              {loading ? "Buscando..." : "Buscar"}
             </button>
           </form>
 
@@ -196,6 +228,7 @@ export default function Estudiantes() {
                   value={form.documento}
                   onChange={(event) => handleChange("documento", event.target.value)}
                   required
+                  disabled={!canManageStudents}
                 />
               </label>
 
@@ -206,6 +239,7 @@ export default function Estudiantes() {
                   value={form.qr_uid}
                   onChange={(event) => handleChange("qr_uid", event.target.value)}
                   required
+                  disabled={!canManageStudents}
                 />
               </label>
 
@@ -216,17 +250,23 @@ export default function Estudiantes() {
                   value={form.nombre}
                   onChange={(event) => handleChange("nombre", event.target.value)}
                   required
+                  disabled={!canManageStudents}
                 />
               </label>
 
               <label>
                 Carrera
-                <input
-                  type="text"
+                <select
                   value={form.carrera}
                   onChange={(event) => handleChange("carrera", event.target.value)}
-                  required
-                />
+                  disabled={!canManageStudents}
+                >
+                  {CAREERS.map((career) => (
+                    <option key={career} value={career}>
+                      {career}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label>
@@ -236,6 +276,8 @@ export default function Estudiantes() {
                   value={form.placa}
                   onChange={(event) => handleChange("placa", event.target.value)}
                   required
+                  placeholder="ABC12D"
+                  disabled={!canManageStudents}
                 />
               </label>
 
@@ -246,6 +288,7 @@ export default function Estudiantes() {
                   value={form.color}
                   onChange={(event) => handleChange("color", event.target.value)}
                   required
+                  disabled={!canManageStudents}
                 />
               </label>
             </div>
@@ -255,12 +298,13 @@ export default function Estudiantes() {
                 type="checkbox"
                 checked={form.vigencia}
                 onChange={(event) => handleChange("vigencia", event.target.checked)}
+                disabled={!canManageStudents}
               />
               <span>Estudiante vigente</span>
             </label>
 
             <div className="button-strip">
-              <button type="submit" disabled={loading}>
+              <button type="submit" disabled={loading || !canManageStudents}>
                 {loading ? "Guardando..." : currentMode === "editar" ? "Guardar cambios" : "Crear estudiante"}
               </button>
               <button type="button" className="ghost-button" onClick={resetForm}>

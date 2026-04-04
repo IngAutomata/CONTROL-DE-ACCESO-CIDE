@@ -28,43 +28,66 @@ export default function Login() {
   }
 
   return (
-    <main className="login-shell">
-      <section className="login-card">
-        <p className="eyebrow">Acceso Seguro</p>
-        <h1>Inicia sesion para continuar</h1>
-        <p className="login-copy">
-          El sistema solo habilita modulos cuando el usuario esta autenticado y su rol tiene permiso.
-        </p>
+    <main className="auth-shell">
+      <div className="auth-backdrop"></div>
+      <section className="auth-panel">
+        <div className="auth-brand">
+          <p className="eyebrow auth-eyebrow">Portal institucional</p>
+          <h1 className="auth-wordmark">SIU</h1>
+          <p className="auth-submark">Sistema de Ingreso Universidad CIDE</p>
+        </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <label>
-            Usuario
-            <input
-              type="text"
-              value={form.username}
-              onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
-              placeholder="admin"
-              required
-            />
-          </label>
+        <div className="auth-card">
+          <div className="auth-card-head">
+            <p className="eyebrow">Acceso seguro</p>
+            <h2>Iniciar sesion</h2>
+            <p className="auth-copy">
+              Ingresa con tu usuario del sistema. Una vez autenticado, la plataforma cargara automaticamente el flujo segun tu rol.
+            </p>
+          </div>
 
-          <label>
-            Contrasena
-            <input
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-              placeholder="Admin123!"
-              required
-            />
-          </label>
+          <form className="auth-form" onSubmit={handleSubmit} autoComplete="off">
+            <label>
+              Usuario
+              <input
+                type="text"
+                name="username"
+                value={form.username}
+                onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+                autoComplete="username"
+                spellCheck="false"
+                required
+              />
+            </label>
 
-          {error ? <div className="form-error">{error}</div> : null}
+            <label>
+              Password
+              <input
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                autoComplete="current-password"
+                required
+              />
+            </label>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Ingresando..." : "Entrar"}
-          </button>
-        </form>
+            {error ? <div className="form-error">{error}</div> : null}
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Ingresando..." : "Iniciar sesion"}
+            </button>
+          </form>
+
+          <div className="auth-divider"><span>portal interno</span></div>
+          <div className="auth-help compact">
+            <p className="login-note">
+              Usa tus credenciales institucionales del sistema. El acceso visible dependera del rol autenticado.
+            </p>
+          </div>
+        </div>
+
+        <p className="auth-footer-copy">Corporacion Internacional para el Desarrollo Educativo</p>
       </section>
     </main>
   );
