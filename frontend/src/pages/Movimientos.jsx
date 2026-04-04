@@ -9,7 +9,7 @@ function formatDate(value) {
 }
 
 export default function Movimientos() {
-  const { role, apiRequest } = useAuth();
+  const { role, apiRequest, user } = useAuth();
   const [insideCampus, setInsideCampus] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
   const [form, setForm] = useState({ qr_uid: "" });
@@ -178,8 +178,8 @@ export default function Movimientos() {
 
       {error ? <div className="form-error">{error}</div> : null}
 
-      <div className="cards-grid cards-grid--single">
-        <article className="info-card">
+      <div className="cards-grid cards-grid--asymmetric">
+        <article className="info-card info-card--narrow">
           <div className="table-head">
             <div>
               <p className="eyebrow">Presencia activa</p>
@@ -190,13 +190,14 @@ export default function Movimientos() {
           {insideCampus.length === 0 ? (
             <div className="empty-state">No hay estudiantes dentro del campus en este momento.</div>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap table-wrap--scrollable">
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th>Estudiante</th>
                     <th>Documento</th>
-                    <th>Nombre</th>
                     <th>Placa</th>
+                    <th>Usuario</th>
                     <th>Ultimo movimiento</th>
                   </tr>
                 </thead>
@@ -211,6 +212,7 @@ export default function Movimientos() {
                       </td>
                       <td>{item.documento}</td>
                       <td><span className="plate-chip">{item.placa || "-"}</span></td>
+                      <td>{item.usuario || item.actor_username || user?.username || "-"}</td>
                       <td><span className="movement-time">{formatDate(item.fecha_ultimo_movimiento)}</span></td>
                     </tr>
                   ))}
@@ -220,7 +222,7 @@ export default function Movimientos() {
           )}
         </article>
 
-        <article className="info-card">
+        <article className="info-card info-card--wide">
           <div className="table-head">
             <div>
               <p className="eyebrow">Actividad reciente</p>
@@ -231,7 +233,7 @@ export default function Movimientos() {
           {allMovements.length === 0 ? (
             <div className="empty-state">Aun no hay movimientos registrados.</div>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap table-wrap--scrollable">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -239,6 +241,7 @@ export default function Movimientos() {
                     <th>Estudiante</th>
                     <th>Documento</th>
                     <th>Tipo</th>
+                    <th>Usuario</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -257,6 +260,7 @@ export default function Movimientos() {
                           {item.tipo}
                         </span>
                       </td>
+                      <td>{item.usuario || item.actor_username || user?.username || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

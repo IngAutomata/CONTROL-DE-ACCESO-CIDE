@@ -31,6 +31,29 @@ function normalizePlate(value) {
   return (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 }
 
+function getQrCandidates(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return [];
+
+  const candidates = new Set([trimmed]);
+
+  try {
+    const url = new URL(trimmed);
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (parts.length > 0) {
+      candidates.add(parts[parts.length - 1]);
+    }
+  } catch (_) {
+    const plain = trimmed.split(/[?#]/)[0];
+    const parts = plain.split("/").filter(Boolean);
+    if (parts.length > 0) {
+      candidates.add(parts[parts.length - 1]);
+    }
+  }
+
+  return Array.from(candidates);
+}
+
 function mapStudentToForm(student) {
   if (!student) return initialForm;
 
@@ -46,7 +69,7 @@ function mapStudentToForm(student) {
 }
 
 export default function Estudiantes() {
-  const { apiRequest, role } = useAuth();
+  const { apiRequest, role, user } = useAuth();
   const [students, setStudents] = useState([]);
   const [lookupValue, setLookupValue] = useState("");
   const [lookupMode, setLookupMode] = useState("documento");
@@ -56,6 +79,8 @@ export default function Estudiantes() {
   const [loading, setLoading] = useState(false);
   const [currentMode, setCurrentMode] = useState("crear");
   const [originalDocumento, setOriginalDocumento] = useState("");
+  const [showStudentsTable, setShowStudentsTable] = useState(false);
+  const [scannedStudent, setScannedStudent] = useState(null);
 
   const canManageStudents = useMemo(() => ["ADMIN", "GUARDA"].includes(role), [role]);
 
@@ -109,9 +134,11 @@ export default function Estudiantes() {
       setForm(mapStudentToForm(data));
       setOriginalDocumento(data.documento || "");
       setCurrentMode("editar");
+      setScannedStudent(data);
       setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "edicion" : "consulta"}.`);
     } catch (err) {
       setError(err.message);
+      setScannedStudent(null);
       if (lookupMode === "documento") {
         setForm((current) => ({ ...current, documento: lookupValue.trim() }));
       } else {
@@ -162,6 +189,7 @@ export default function Estudiantes() {
       setLookupMode("documento");
       setLookupValue(estudiante.documento || form.documento);
       setForm(mapStudentToForm(estudiante));
+      setScannedStudent(estudiante);
       await fetchStudents();
     } catch (err) {
       setError(err.message);
@@ -183,6 +211,7 @@ export default function Estudiantes() {
     setLookupMode("documento");
     setCurrentMode("crear");
     setOriginalDocumento("");
+    setScannedStudent(null);
     setStatus("");
     setError("");
   }
@@ -203,21 +232,108 @@ export default function Estudiantes() {
         <article className="info-card">
           <h3>{currentMode === "editar" ? "Registro cargado" : "Registrar o buscar estudiante"}</h3>
 
-          <form className="inline-form" onSubmit={handleLookup}>
-            <select value={lookupMode} onChange={(event) => setLookupMode(event.target.value)}>
-              <option value="documento">Buscar por documento</option>
-              <option value="placa">Buscar por placa</option>
-            </select>
+          {canManageStudents ? (
+            <div className="student-scan-block">
+              <QrScanner
+                title="Leer QR para primer ingreso"
+                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su informacion inmediatamente."
+                buttonLabel="Escanear QR del estudiante"
+                onScan={async (decodedText) => {
+                  const qrValue = decodedText.trim();
+                  const candidates = getQrCandidates(qrValue);
+                  const matchedStudent = students.find((student) => candidates.includes(student.qr_uid));
+
+                  handleChange("qr_uid", qrValue);
+                  setError("");
+
+                  if (matchedStudent) {
+                    setForm(mapStudentToForm(matchedStudent));
+                    setOriginalDocumento(matchedStudent.documento || "");
+                    setCurrentMode("editar");
+                    setScannedStudent(matchedStudent);
+                    setLookupMode("documento");
+                    setLookupValue(matchedStudent.documento || "");
+                    setStatus(`QR reconocido. ${matchedStudent.nombre} cargado para edicion.`);
+                    return;
+                  }
+
+                  setScannedStudent({
+                    documento: "Sin registro",
+                    nombre: "QR nuevo",
+                    qr_uid: qrValue,
+                    placa: "-",
+                    carrera: "No encontrado en la base",
+                    vigencia: false,
+                  });
+                  setStatus("QR cargado en el formulario. Completa los datos para registrar al estudiante.");
+                }}
+              />
+
+              <div className="student-scan-result">
+                <h4>Informacion del estudiante escaneado</h4>
+                {scannedStudent ? (
+                  <dl className="scan-info-grid">
+                    <div>
+                      <dt>Nombre</dt>
+                      <dd>{scannedStudent.nombre || "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>Documento</dt>
+                      <dd>{scannedStudent.documento || "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>QR</dt>
+                      <dd>{scannedStudent.qr_uid || "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>Placa</dt>
+                      <dd>{scannedStudent.placa || "-"}</dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <div className="empty-state">Escanea un QR para ver aqui la informacion del estudiante.</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <form className="stack-form student-lookup-form" onSubmit={handleLookup}>
+            <div className="search-mode-group" role="radiogroup" aria-label="Buscar por">
+              <span className="search-mode-group__label">Buscar por:</span>
+              <label className={`search-mode-option${lookupMode === "placa" ? " active" : ""}`}>
+                <input
+                  type="radio"
+                  name="lookup-mode"
+                  value="placa"
+                  checked={lookupMode === "placa"}
+                  onChange={(event) => setLookupMode(event.target.value)}
+                />
+                <span>Placa</span>
+              </label>
+              <label className={`search-mode-option${lookupMode === "documento" ? " active" : ""}`}>
+                <input
+                  type="radio"
+                  name="lookup-mode"
+                  value="documento"
+                  checked={lookupMode === "documento"}
+                  onChange={(event) => setLookupMode(event.target.value)}
+                />
+                <span>Documento</span>
+              </label>
+            </div>
 
             <input
+              className="lookup-input"
               type="text"
-              placeholder={lookupMode === "documento" ? "Documento" : "Placa ABC12D"}
+              placeholder={lookupMode === "documento" ? "Ingresa el documento del estudiante" : "Ingresa la placa. Ejemplo: ABC12D"}
               value={lookupValue}
               onChange={(event) => setLookupValue(lookupMode === "placa" ? normalizePlate(event.target.value) : event.target.value)}
             />
-            <button type="submit" disabled={loading}>
-              {loading ? "Buscando..." : "Buscar"}
-            </button>
+            <div className="button-strip">
+              <button type="submit" disabled={loading}>
+                {loading ? "Buscando..." : "Buscar"}
+              </button>
+            </div>
           </form>
 
           <form className="stack-form" onSubmit={handleSubmit}>
@@ -311,21 +427,15 @@ export default function Estudiantes() {
               <button type="button" className="ghost-button" onClick={resetForm}>
                 Nuevo registro
               </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setShowStudentsTable((current) => !current)}
+              >
+                {showStudentsTable ? "Ocultar estudiantes" : "Ver estudiantes"}
+              </button>
             </div>
           </form>
-
-          {canManageStudents ? (
-            <QrScanner
-              title="Leer QR para primer ingreso"
-              helpText="Escanea el QR real del estudiante para llenar automaticamente el campo qr_uid antes de guardar."
-              buttonLabel="Escanear QR del estudiante"
-              onScan={async (decodedText) => {
-                handleChange("qr_uid", decodedText.trim());
-                setStatus("QR cargado en el formulario. Ahora puedes completar o guardar el registro.");
-                setError("");
-              }}
-            />
-          ) : null}
 
           {status ? <div className="form-success">{status}</div> : null}
           {error ? <div className="form-error">{error}</div> : null}
@@ -333,10 +443,12 @@ export default function Estudiantes() {
 
         <article className="info-card">
           <h3>Estudiantes registrados</h3>
-          {students.length === 0 ? (
+          {!showStudentsTable ? (
+            <div className="empty-state">La tabla esta oculta. Usa el boton "Ver estudiantes" para cargarla en pantalla.</div>
+          ) : students.length === 0 ? (
             <div className="empty-state">Aun no hay estudiantes registrados.</div>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap table-wrap--scrollable">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -345,6 +457,7 @@ export default function Estudiantes() {
                     <th>QR</th>
                     <th>Placa</th>
                     <th>Vigencia</th>
+                    <th>Usuario</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -355,6 +468,7 @@ export default function Estudiantes() {
                       <td>{student.qr_uid}</td>
                       <td>{student.placa || "-"}</td>
                       <td>{student.vigencia ? "Vigente" : "No vigente"}</td>
+                      <td>{student.usuario || student.actor_username || user?.username || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
