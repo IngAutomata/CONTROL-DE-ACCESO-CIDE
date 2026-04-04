@@ -9,7 +9,7 @@ import Estudiantes from "./pages/Estudiantes.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 export default function App() {
-  const { isAuthenticated, ready } = useAuth();
+  const { isAuthenticated, ready, role, user } = useAuth();
 
   if (!ready) {
     return (
@@ -41,8 +41,8 @@ export default function App() {
       <main className="content">
         <div className="content__banner">
           <span className="content__banner-icon">i</span>
-          <strong>Portal operativo CIDE</strong>
-          <span>El acceso visible depende del rol autenticado.</span>
+          <strong>Portal operativo SIUC</strong>
+          <span>{user?.username || "Sesion activa"} · {role || "Sin rol"} · El acceso visible depende del rol autenticado.</span>
         </div>
         <Routes>
           <Route element={<ProtectedRoute />}>

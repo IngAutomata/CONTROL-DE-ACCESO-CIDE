@@ -199,7 +199,7 @@ export default function Estudiantes() {
         </p>
       </header>
 
-      <div className="cards-grid">
+      <div className="cards-grid cards-grid--single">
         <article className="info-card">
           <h3>{currentMode === "editar" ? "Registro cargado" : "Registrar o buscar estudiante"}</h3>
 

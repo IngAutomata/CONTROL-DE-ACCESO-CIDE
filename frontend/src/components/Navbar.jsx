@@ -23,11 +23,16 @@ const menuByRole = {
 export default function Navbar() {
   const { user, logout, role } = useAuth();
   const items = menuByRole[role] || [];
+  const roleCopy = role === "ADMIN"
+    ? "Acceso administrativo completo"
+    : role === "GUARDA"
+      ? "Operacion de acceso y monitoreo"
+      : "Consulta y seguimiento";
 
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <h1 className="sidebar__wordmark">SIU</h1>
+        <h1 className="sidebar__wordmark">SIUC</h1>
         <p className="sidebar__submark">Sistema de Ingreso Universidad CIDE</p>
         <p className="sidebar__portal">Portal operativo</p>
       </div>
@@ -53,6 +58,7 @@ export default function Navbar() {
           <span className="sidebar__welcome">Bienvenido</span>
           <span className="sidebar__user">{user?.username || "Sin sesion"}</span>
           <span className="sidebar__role">{role || "-"}</span>
+          <span className="sidebar__role-copy">{roleCopy}</span>
         </div>
 
         <button type="button" className="sidebar__logout" onClick={logout}>

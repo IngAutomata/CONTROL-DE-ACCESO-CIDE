@@ -6,6 +6,7 @@ export default function Login() {
   const { isAuthenticated, login, loading } = useAuth();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
+  const [loginState, setLoginState] = useState("Portal listo para autenticacion.");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -18,12 +19,15 @@ export default function Login() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setLoginState("Verificando credenciales institucionales...");
 
     try {
-      await login(form.username, form.password);
+      const user = await login(form.username, form.password);
+      setLoginState(`Acceso validado para ${user.username}. Cargando modulo ${user.role}...`);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
+      setLoginState("No fue posible iniciar sesion. Revisa usuario y contraseña.");
     }
   }
 
@@ -33,7 +37,7 @@ export default function Login() {
       <section className="auth-panel">
         <div className="auth-brand">
           <p className="eyebrow auth-eyebrow">Portal institucional</p>
-          <h1 className="auth-wordmark">SIU</h1>
+          <h1 className="auth-wordmark">SIUC</h1>
           <p className="auth-submark">Sistema de Ingreso Universidad CIDE</p>
         </div>
 
@@ -73,6 +77,7 @@ export default function Login() {
             </label>
 
             {error ? <div className="form-error">{error}</div> : null}
+            <div className="auth-status">{loginState}</div>
 
             <button type="submit" disabled={loading}>
               {loading ? "Ingresando..." : "Iniciar sesion"}
@@ -84,10 +89,27 @@ export default function Login() {
             <p className="login-note">
               Usa tus credenciales institucionales del sistema. El acceso visible dependera del rol autenticado.
             </p>
+            <div className="login-role-grid">
+              <article className="login-role-card">
+                <span className="login-role-tag">ADMIN</span>
+                <strong>Gestion total</strong>
+                <p>Usuarios, estudiantes, monitoreo y control general del sistema.</p>
+              </article>
+              <article className="login-role-card">
+                <span className="login-role-tag">GUARDA</span>
+                <strong>Operacion de acceso</strong>
+                <p>Registro por QR, primer ingreso y control de presencia en campus.</p>
+              </article>
+              <article className="login-role-card">
+                <span className="login-role-tag">CONSULTA</span>
+                <strong>Seguimiento</strong>
+                <p>Vista de lectura para historial, estudiantes y estado del campus.</p>
+              </article>
+            </div>
           </div>
         </div>
 
-        <p className="auth-footer-copy">Corporacion Internacional para el Desarrollo Educativo</p>
+        <p className="auth-footer-copy">Sistema de Ingreso Universidad CIDE</p>
       </section>
     </main>
   );
