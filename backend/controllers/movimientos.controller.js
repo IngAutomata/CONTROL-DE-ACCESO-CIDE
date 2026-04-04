@@ -21,6 +21,16 @@ function extraerQrUid(input) {
   return parts.length > 0 ? parts[parts.length - 1] : null;
 }
 
+function construirQrCandidates(input) {
+  if (!input || typeof input !== "string") return [];
+
+  const trimmed = input.trim();
+  if (!trimmed) return [];
+
+  const extracted = extraerQrUid(trimmed);
+  return Array.from(new Set([trimmed, extracted].filter(Boolean)));
+}
+
 function parseId(rawId) {
   const id = Number(rawId);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -30,6 +40,7 @@ async function registrarMovimiento(req, res, next) {
   const body = req.body || {};
   const qrRaw = body.qr_uid || body.qr_url;
   const qrUid = extraerQrUid(qrRaw);
+  const qrCandidates = construirQrCandidates(qrRaw);
 
   if (!qrUid) {
     return res.status(400).json({ error: "Falta qr_uid o qr_url" });
@@ -41,7 +52,9 @@ async function registrarMovimiento(req, res, next) {
     console.log("[movimientos] POST /movimientos/registrar", { qr_uid: qrUid });
     await client.query("BEGIN");
 
-    const est = await estudiantesModel.findByQrUidForUpdate(client, qrUid);
+    const est = estudiantesModel.findByQrCandidatesForUpdate
+      ? await estudiantesModel.findByQrCandidatesForUpdate(client, qrCandidates)
+      : await estudiantesModel.findByQrUidForUpdate(client, qrUid);
 
     if (est.rows.length === 0) {
       await client.query("ROLLBACK");

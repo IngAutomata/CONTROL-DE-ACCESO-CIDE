@@ -155,6 +155,25 @@ async function findByQrUidForUpdate(client, qrUid) {
   );
 }
 
+async function findByQrCandidatesForUpdate(client, candidates) {
+  const filtered = Array.from(new Set((candidates || []).filter(Boolean)));
+
+  if (filtered.length === 0) {
+    return { rows: [] };
+  }
+
+  return client.query(
+    `
+    SELECT id, documento, qr_uid, nombre, carrera, vigencia
+    FROM estudiantes
+    WHERE qr_uid = ANY($1::text[])
+    ORDER BY CASE WHEN qr_uid = $2 THEN 0 ELSE 1 END, id DESC
+    FOR UPDATE
+    `,
+    [filtered, filtered[0]]
+  );
+}
+
 module.exports = {
   createPrimerIngreso,
   findByDocumento,
@@ -162,6 +181,7 @@ module.exports = {
   findById,
   listAll,
   findByQrUidForUpdate,
+  findByQrCandidatesForUpdate,
   updateById,
   deleteById,
 };

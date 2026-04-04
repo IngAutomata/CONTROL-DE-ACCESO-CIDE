@@ -162,6 +162,54 @@ async function runTest(name, fn) {
     assert.ok(calls.some((c) => c.op === "createMovimiento" && c.estudianteId === 10 && c.tipo === "SALIDA"));
   });
 
+  await runTest("registrarMovimiento acepta qr_url completo cuando el estudiante guarda la URL completa", async () => {
+    const calls = [];
+    const client = {
+      query: async () => ({ rows: [] }),
+      release() {},
+    };
+
+    const { registrarMovimiento } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        findByQrCandidatesForUpdate: async (_client, candidates) => {
+          calls.push({ op: "findByQrCandidatesForUpdate", candidates });
+          return {
+            rows: [{ id: 81, documento: "1016034712", nombre: "CRISTIAN SALAZAR", carrera: "Ing", vigencia: true }],
+          };
+        },
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [] }),
+        createMovimiento: async (_client, estudianteId, tipo) => ({
+          rows: [{ id: 88, estudiante_id: estudianteId, tipo, fecha_hora: "2026-04-04T16:00:00.000Z" }],
+        }),
+      },
+    });
+
+    const req = {
+      body: {
+        qr_uid: "https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2",
+      },
+    };
+    const res = createRes();
+
+    await registrarMovimiento(req, res, () => {});
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.movimiento.tipo, "ENTRADA");
+    assert.ok(
+      calls.some(
+        (c) =>
+          c.op === "findByQrCandidatesForUpdate" &&
+          c.candidates.includes("https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2") &&
+          c.candidates.includes("NjEyMzE2")
+      )
+    );
+  });
+
   await runTest("listarDentroCampus retorna 200 con count y estudiantes", async () => {
     const fakeRows = [
       {

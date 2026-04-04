@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import QrScanner from "../components/QrScanner.jsx";
 
@@ -18,7 +18,11 @@ export default function Movimientos() {
   const [lastRegistered, setLastRegistered] = useState(null);
   const canRegister = role === "ADMIN" || role === "GUARDA";
 
-  async function refreshData() {
+  const refreshData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setError("");
+    }
+
     const payloads = await Promise.all([
       apiRequest("/movimientos/dentro-campus"),
       apiRequest("/movimientos"),
@@ -26,24 +30,14 @@ export default function Movimientos() {
 
     setInsideCampus(payloads[0].estudiantes || []);
     setAllMovements(payloads[1].movimientos || []);
-  }
+  }, [apiRequest]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadData() {
-      setError("");
-
       try {
-        const payloads = await Promise.all([
-          apiRequest("/movimientos/dentro-campus"),
-          apiRequest("/movimientos"),
-        ]);
-
-        if (!cancelled) {
-          setInsideCampus(payloads[0].estudiantes || []);
-          setAllMovements(payloads[1].movimientos || []);
-        }
+        await refreshData();
       } catch (err) {
         if (!cancelled) {
           setError(err.message);
@@ -56,7 +50,17 @@ export default function Movimientos() {
     return () => {
       cancelled = true;
     };
-  }, [apiRequest, role, status]);
+  }, [refreshData, role]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      refreshData({ silent: true }).catch(() => null);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [refreshData]);
 
   async function registerMovement(qrValue) {
     const data = await apiRequest("/movimientos/registrar", {
