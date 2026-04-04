@@ -235,26 +235,32 @@ body:not(.authenticated) .app-shell {
 }
 
 .app-shell {
-  max-width: 1380px;
-  margin: 0 auto;
-  padding: 32px 20px 48px;
+  display: grid;
+  grid-template-columns: 306px minmax(0, 1fr);
+  gap: 20px;
+  max-width: 100%;
+  margin: 0;
+  padding: 18px 20px 28px;
 }
 
 .site-header {
-  margin-bottom: 14px;
+  position: sticky;
+  top: 18px;
+  align-self: start;
+  min-height: calc(100vh - 36px);
+  margin-bottom: 0;
   border: 1px solid rgba(36, 71, 54, 0.14);
   background: linear-gradient(180deg, rgba(38, 79, 58, 0.98), rgba(31, 67, 49, 0.98));
   box-shadow: var(--shadow);
   color: #f2ead9;
+  border-radius: 0;
+  overflow: hidden;
 }
 
 .site-topline {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 18px;
-  padding: 12px 18px;
-  border-bottom: 1px solid rgba(239, 226, 204, 0.12);
+  display: block;
+  padding: 18px 18px 10px;
+  border-bottom: 0;
 }
 
 .topline-copy {
@@ -266,9 +272,7 @@ body:not(.authenticated) .app-shell {
 }
 
 .topline-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: none;
 }
 
 .topline-chip {
@@ -279,21 +283,21 @@ body:not(.authenticated) .app-shell {
 }
 
 .masthead {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 24px;
-  padding: 30px 24px 26px;
+  display: block;
+  padding: 12px 20px 24px;
 }
 
 .wordmark-block {
-  min-width: 280px;
+  min-width: 0;
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(239, 226, 204, 0.12);
 }
 
 .wordmark {
   margin: 0;
   font-family: "Oswald", sans-serif;
-  font-size: clamp(4rem, 12vw, 7rem);
+  font-size: clamp(4rem, 8vw, 6rem);
   line-height: 0.9;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -302,36 +306,35 @@ body:not(.authenticated) .app-shell {
 
 .submark {
   margin: 6px 0 0;
-  font-size: 1.25rem;
+  font-size: 1rem;
   color: rgba(239, 226, 204, 0.92);
 }
 
 .site-nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 28px;
-  padding-bottom: 10px;
+  display: grid;
+  gap: 6px;
+  padding: 18px 0 0;
 }
 
 .site-nav a {
+  padding: 14px 16px;
   color: #f7f3e8;
   text-decoration: none;
-  font-family: "Oswald", sans-serif;
-  font-size: clamp(1.3rem, 3vw, 2rem);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 14px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .site-nav a:hover {
-  color: var(--brand-yellow);
+  color: #f7f3e8;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .brand-strip {
-  display: flex;
-  justify-content: flex-end;
-  gap: 14px;
-  margin-bottom: 10px;
+  grid-column: 2;
+  display: none;
 }
 
 .brand-chip {
@@ -344,6 +347,7 @@ body:not(.authenticated) .app-shell {
 }
 
 .hero {
+  grid-column: 2;
   padding: 34px 30px 28px;
   border: 1px solid rgba(220, 233, 192, 0.18);
   background:
@@ -352,9 +356,11 @@ body:not(.authenticated) .app-shell {
     linear-gradient(135deg, rgba(255, 250, 242, 0.94), rgba(250, 241, 228, 0.94));
   box-shadow: var(--shadow);
   color: #f2ead9;
+  border-radius: 22px;
 }
 
 .dashboard-strip {
+  grid-column: 2;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
@@ -428,6 +434,7 @@ body:not(.authenticated) .app-shell {
 }
 
 .dashboard-summary {
+  grid-column: 2;
   margin-top: 18px;
 }
 
@@ -702,6 +709,7 @@ body:not(.authenticated) .app-shell {
 }
 
 .grid {
+  grid-column: 2;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 18px;
@@ -1067,16 +1075,19 @@ button.full {
 }
 
 .output-card {
+  grid-column: 2;
   margin-top: 18px;
 }
 
 .site-footer {
+  grid-column: 2;
   margin-top: 22px;
   padding: 28px 24px 18px;
   border: 1px solid rgba(36, 71, 54, 0.14);
   background: linear-gradient(180deg, rgba(38, 79, 58, 0.98), rgba(31, 67, 49, 0.98));
   box-shadow: var(--shadow);
   color: #f2ead9;
+  border-radius: 24px;
 }
 
 .footer-grid {
@@ -1186,6 +1197,10 @@ button.full {
 }
 
 @media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-strip,
   .summary-grid,
   .campus-summary {
@@ -1202,12 +1217,27 @@ button.full {
 
   .site-nav {
     justify-content: flex-start;
-    gap: 16px 22px;
+    gap: 10px;
   }
 
   .card,
   .card.wide {
     grid-column: span 12;
+  }
+
+  .site-header,
+  .hero,
+  .dashboard-strip,
+  .dashboard-summary,
+  .grid,
+  .output-card,
+  .site-footer {
+    grid-column: auto;
+  }
+
+  .site-header {
+    position: static;
+    min-height: auto;
   }
 }
 
