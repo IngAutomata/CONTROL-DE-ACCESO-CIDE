@@ -154,9 +154,31 @@ async function obtenerPorDocumento(req, res, next) {
   }
 }
 
+async function obtenerPorPlaca(req, res, next) {
+  const placa = normalizarPlaca(req.params.placa);
+
+  if (!placa) {
+    return res.status(400).json({ error: "placa es requerida" });
+  }
+
+  try {
+    console.log("[estudiantes] GET /estudiantes/placa/:placa", { placa });
+    const result = await estudiantesModel.findByPlaca(placa);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   primerIngreso,
   listarEstudiantes,
   obtenerPorId,
   obtenerPorDocumento,
+  obtenerPorPlaca,
 };

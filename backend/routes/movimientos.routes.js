@@ -18,6 +18,6 @@ router.use(authMiddleware);
 router.post("/registrar", requireRole(ROLES.ADMIN, ROLES.GUARDA), registrarMovimiento);
 router.get("/", requireRole(ROLES_LECTURA), listarMovimientos);
 router.get("/estudiante/:id", requireRole(ROLES_LECTURA), listarMovimientosPorEstudiante);
-router.get("/dentro-campus", requireRole(ROLES.ADMIN, ROLES.GUARDA), listarDentroCampus);
+router.get("/dentro-campus", requireRole(ROLES_LECTURA), listarDentroCampus);
 
 module.exports = router;
