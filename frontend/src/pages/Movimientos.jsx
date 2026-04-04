@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import QrScanner from "../components/QrScanner.jsx";
 
 function formatDate(value) {
   if (!value) return "-";
@@ -15,6 +16,16 @@ export default function Movimientos() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const canRegister = role === "ADMIN" || role === "GUARDA";
+
+  async function refreshData() {
+    const payloads = await Promise.all([
+      apiRequest("/movimientos/dentro-campus"),
+      apiRequest("/movimientos"),
+    ]);
+
+    setInsideCampus(payloads[0].estudiantes || []);
+    setAllMovements(payloads[1].movimientos || []);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +57,18 @@ export default function Movimientos() {
     };
   }, [apiRequest, role, status]);
 
+  async function registerMovement(qrValue) {
+    const data = await apiRequest("/movimientos/registrar", {
+      method: "POST",
+      body: JSON.stringify({ qr_uid: qrValue }),
+    });
+
+    setStatus(`${data.movimiento.tipo} registrada para ${data.estudiante.nombre}`);
+    setForm({ qr_uid: "" });
+    await refreshData();
+    return data;
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -57,13 +80,7 @@ export default function Movimientos() {
     }
 
     try {
-      const data = await apiRequest("/movimientos/registrar", {
-        method: "POST",
-        body: JSON.stringify({ qr_uid: form.qr_uid }),
-      });
-
-      setStatus(`${data.movimiento.tipo} registrada para ${data.estudiante.nombre}`);
-      setForm({ qr_uid: "" });
+      await registerMovement(form.qr_uid);
     } catch (err) {
       setError(err.message);
     }
@@ -96,6 +113,16 @@ export default function Movimientos() {
             />
             <button type="submit">Registrar</button>
           </form>
+          <QrScanner
+            title="Escanear QR para acceso"
+            helpText="Al detectar un QR valido, el sistema registrara automaticamente ENTRADA o SALIDA segun el ultimo movimiento del estudiante."
+            buttonLabel="Abrir camara para acceso"
+            onScan={async (decodedText) => {
+              setError("");
+              setStatus("QR detectado. Registrando movimiento...");
+              await registerMovement(decodedText.trim());
+            }}
+          />
           {status ? <div className="form-success">{status}</div> : null}
         </article>
       )}

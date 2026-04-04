@@ -36,9 +36,10 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const summary = useMemo(() => summaryByRole[role] || summaryByRole.CONSULTA, [role]);
   const metricCards = useMemo(() => ([
-    { title: "Usuario activo", value: user?.username || "-", detail: role || "Sin rol", tone: "blue" },
-    { title: "Rol operativo", value: role || "-", detail: "Perfil autenticado", tone: "green" },
-    { title: "Identificador", value: profile?.id || user?.id || "-", detail: "Control de acceso", tone: "orange" },
+    { title: "Sesion", value: user?.username || "-", detail: role || "Sin rol", tone: "blue" },
+    { title: "Perfil", value: role || "-", detail: "Acceso autenticado", tone: "green" },
+    { title: "Identificador", value: profile?.id || user?.id || "-", detail: "Registro interno", tone: "orange" },
+    { title: "Estado", value: "ACTIVO", detail: "Sesion validada", tone: "accent" },
   ]), [profile?.id, role, user?.id, user?.username]);
 
   useEffect(() => {
@@ -72,6 +73,26 @@ export default function Dashboard() {
         <h2>Bienvenido, {user?.username || "usuario"}.</h2>
         <p>{summary.description}</p>
       </header>
+
+      <section className="welcome-panel">
+        <div className="welcome-panel__main">
+          <h3>Portal principal</h3>
+          <p className="welcome-panel__headline">
+            Panel operativo del <strong>SIU</strong> para control de acceso, validacion y seguimiento institucional.
+          </p>
+          <div className="welcome-panel__meta">
+            <span>{role || "Sin rol"}</span>
+            <span>{user?.username || "-"}</span>
+            <span>{profile?.id ? `ID ${profile.id}` : "Sin ID"}</span>
+          </div>
+        </div>
+        <div className="welcome-panel__score">
+          <div className="welcome-ring">
+            <span>100%</span>
+          </div>
+          <p>Integridad operativa</p>
+        </div>
+      </section>
 
       <div className="stats-grid">
         {metricCards.map((card) => (

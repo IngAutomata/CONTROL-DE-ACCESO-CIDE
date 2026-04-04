@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import QrScanner from "../components/QrScanner.jsx";
 
 const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
 const CAREERS = [
@@ -312,6 +313,19 @@ export default function Estudiantes() {
               </button>
             </div>
           </form>
+
+          {canManageStudents ? (
+            <QrScanner
+              title="Leer QR para primer ingreso"
+              helpText="Escanea el QR real del estudiante para llenar automaticamente el campo qr_uid antes de guardar."
+              buttonLabel="Escanear QR del estudiante"
+              onScan={async (decodedText) => {
+                handleChange("qr_uid", decodedText.trim());
+                setStatus("QR cargado en el formulario. Ahora puedes completar o guardar el registro.");
+                setError("");
+              }}
+            />
+          ) : null}
 
           {status ? <div className="form-success">{status}</div> : null}
           {error ? <div className="form-error">{error}</div> : null}

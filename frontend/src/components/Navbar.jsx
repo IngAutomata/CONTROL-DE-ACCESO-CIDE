@@ -3,20 +3,20 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 const menuByRole = {
   ADMIN: [
-    { to: "/", label: "Inicio", icon: "•" },
-    { to: "/estudiantes", label: "Estudiantes", icon: "•" },
-    { to: "/movimientos", label: "Movimientos", icon: "•" },
-    { to: "/admin", label: "Administracion", icon: "•" },
+    { to: "/", label: "Inicio", icon: "IN" },
+    { to: "/estudiantes", label: "Estudiantes", icon: "ES" },
+    { to: "/movimientos", label: "Movimientos", icon: "MV" },
+    { to: "/admin", label: "Administracion", icon: "AD" },
   ],
   GUARDA: [
-    { to: "/", label: "Inicio", icon: "•" },
-    { to: "/estudiantes", label: "Estudiantes", icon: "•" },
-    { to: "/movimientos", label: "Movimientos", icon: "•" },
+    { to: "/", label: "Inicio", icon: "IN" },
+    { to: "/estudiantes", label: "Estudiantes", icon: "ES" },
+    { to: "/movimientos", label: "Movimientos", icon: "MV" },
   ],
   CONSULTA: [
-    { to: "/", label: "Inicio", icon: "•" },
-    { to: "/estudiantes", label: "Estudiantes", icon: "•" },
-    { to: "/movimientos", label: "Movimientos", icon: "•" },
+    { to: "/", label: "Inicio", icon: "IN" },
+    { to: "/estudiantes", label: "Estudiantes", icon: "ES" },
+    { to: "/movimientos", label: "Movimientos", icon: "MV" },
   ],
 };
 
