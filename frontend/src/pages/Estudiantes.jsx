@@ -1,20 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import QrScanner from "../components/QrScanner.jsx";
 
 const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
+const DOCUMENT_REGEX = /^\d{8,10}$/;
+const CELULAR_REGEX = /^\d{1,10}$/;
+const CIDE_QR_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
 const CAREERS = [
-  "INGENIERIA DE SISTEMAS",
-  "INGENIERIA INDUSTRIAL",
-  "CONTADURIA PUBLICA",
-  "ADMINISTRACION DE EMPRESAS",
-  "DERECHO",
-  "PSICOLOGIA",
-  "TRABAJO SOCIAL",
-  "LICENCIATURA EN PEDAGOGIA INFANTIL",
-  "LICENCIATURA EN LENGUA CASTELLANA E INGLES",
-  "SEGURIDAD Y SALUD EN EL TRABAJO",
-  "ESPECIALIZACION EN GERENCIA DE PROYECTOS",
+  "Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538",
+  "Tecnico Profesional Procesos de Redes y Comunicaciones - 109639",
+  "Tecnico Profesional en Instalaciones Electricas para Sistemas Renovables - 108879",
+  "Tecnologo Electrico en Generacion y Gestion Eficiente de Energias Renovables - 108524",
+  "Tecnologo en Gestion de Sistemas Mecatronicos Industriales - 108525",
+  "Tecnologia en Gestion de Seguridad y Salud en el Trabajo - 108794",
+  "Tecnologia en Gestion de Sistemas Informaticos - 110400",
+  "Ingenieria Electrica - 108667",
+  "Ingenieria Mecatronica - 108787",
+  "Ingenieria Industrial - 108795",
+  "Ingenieria de Sistemas - 110399",
 ];
 
 const initialForm = {
@@ -22,6 +25,7 @@ const initialForm = {
   qr_uid: "",
   nombre: "",
   carrera: CAREERS[0],
+  celular: "",
   placa: "",
   color: "",
   vigencia: true,
@@ -29,6 +33,18 @@ const initialForm = {
 
 function normalizePlate(value) {
   return (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+function normalizeDocumento(value) {
+  return (value || "").replace(/\D/g, "").slice(0, 10);
+}
+
+function normalizeCelular(value) {
+  return (value || "").replace(/\D/g, "").slice(0, 10);
+}
+
+function normalizeQr(value) {
+  return (value || "").trim();
 }
 
 function getQrCandidates(value) {
@@ -59,9 +75,10 @@ function mapStudentToForm(student) {
 
   return {
     documento: student.documento || "",
-    qr_uid: student.qr_uid || "",
+    qr_uid: normalizeQr(student.qr_uid || ""),
     nombre: student.nombre || "",
     carrera: student.carrera || CAREERS[0],
+    celular: normalizeCelular(student.celular || ""),
     placa: normalizePlate(student.placa || ""),
     color: student.color || "",
     vigencia: Boolean(student.vigencia),
@@ -81,8 +98,17 @@ export default function Estudiantes() {
   const [originalDocumento, setOriginalDocumento] = useState("");
   const [showStudentsTable, setShowStudentsTable] = useState(false);
   const [scannedStudent, setScannedStudent] = useState(null);
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    payload: null,
+    details: null,
+  });
 
   const canManageStudents = useMemo(() => ["ADMIN", "GUARDA"].includes(role), [role]);
+  const isGuardEditing = useMemo(
+    () => role === "GUARDA" && currentMode === "editar",
+    [currentMode, role]
+  );
 
   async function fetchStudents() {
     const data = await apiRequest("/estudiantes");
@@ -123,6 +149,11 @@ export default function Estudiantes() {
       return;
     }
 
+    if (lookupMode === "documento" && !DOCUMENT_REGEX.test(normalizeDocumento(lookupValue))) {
+      setError("La cédula debe tener entre 8 y 10 dígitos numéricos.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -135,12 +166,12 @@ export default function Estudiantes() {
       setOriginalDocumento(data.documento || "");
       setCurrentMode("editar");
       setScannedStudent(data);
-      setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "edicion" : "consulta"}.`);
+      setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "edición" : "consulta"}.`);
     } catch (err) {
       setError(err.message);
       setScannedStudent(null);
       if (lookupMode === "documento") {
-        setForm((current) => ({ ...current, documento: lookupValue.trim() }));
+        setForm((current) => ({ ...current, documento: normalizeDocumento(lookupValue) }));
       } else {
         setForm((current) => ({ ...current, placa: normalizePlate(lookupValue) }));
       }
@@ -162,22 +193,63 @@ export default function Estudiantes() {
     setError("");
     setStatus("");
 
+    if (!DOCUMENT_REGEX.test(form.documento)) {
+      setError("La cédula debe tener entre 8 y 10 dígitos numéricos.");
+      return;
+    }
+
+    if (form.celular && !CELULAR_REGEX.test(form.celular)) {
+      setError("El celular debe contener solo números y máximo 10 caracteres.");
+      return;
+    }
+
+    if (!CIDE_QR_REGEX.test(form.qr_uid)) {
+      setError("El QR debe tener formato CIDE y terminar en un código alfanumérico de 1 a 8 caracteres.");
+      return;
+    }
+
     if (!PLATE_REGEX.test(form.placa)) {
       setError("La placa debe tener formato ABC12D.");
       return;
     }
 
+    try {
+      const isEditing = currentMode === "editar" && originalDocumento;
+      if (isEditing) {
+        setConfirmState({
+          open: true,
+          payload: { ...form },
+          details: {
+            documento_actual: originalDocumento,
+            documento_nuevo: form.documento,
+            nombre: form.nombre,
+            carrera: form.carrera,
+            celular: form.celular || "-",
+            placa: form.placa,
+            color: form.color,
+            vigencia: form.vigencia ? "Activa" : "Inactiva",
+          },
+        });
+        return;
+      }
+
+      await saveStudent(form, false);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function saveStudent(payload, isEditing) {
     setLoading(true);
 
     try {
-      const isEditing = currentMode === "editar" && originalDocumento;
       const endpoint = isEditing
         ? `/estudiantes/documento/${encodeURIComponent(originalDocumento)}`
         : "/estudiantes/primer-ingreso";
       const method = isEditing ? "PUT" : "POST";
       const data = await apiRequest(endpoint, {
         method,
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const estudiante = data.estudiante || data;
@@ -185,11 +257,12 @@ export default function Estudiantes() {
 
       setStatus(`Estudiante ${actionLabel} correctamente.`);
       setCurrentMode("editar");
-      setOriginalDocumento(estudiante.documento || form.documento);
+      setOriginalDocumento(estudiante.documento || payload.documento);
       setLookupMode("documento");
-      setLookupValue(estudiante.documento || form.documento);
+      setLookupValue(estudiante.documento || payload.documento);
       setForm(mapStudentToForm(estudiante));
       setScannedStudent(estudiante);
+      setConfirmState({ open: false, payload: null, details: null });
       await fetchStudents();
     } catch (err) {
       setError(err.message);
@@ -201,7 +274,15 @@ export default function Estudiantes() {
   function handleChange(field, value) {
     setForm((current) => ({
       ...current,
-      [field]: field === "placa" ? normalizePlate(value) : value,
+      [field]: field === "placa"
+        ? normalizePlate(value)
+        : field === "documento"
+          ? normalizeDocumento(value)
+          : field === "celular"
+            ? normalizeCelular(value)
+            : field === "qr_uid"
+              ? normalizeQr(value)
+              : value,
     }));
   }
 
@@ -212,8 +293,17 @@ export default function Estudiantes() {
     setCurrentMode("crear");
     setOriginalDocumento("");
     setScannedStudent(null);
+    setConfirmState({ open: false, payload: null, details: null });
     setStatus("");
     setError("");
+  }
+
+  function formatConfirmationDetails(details) {
+    if (!details) return "";
+
+    return Object.entries(details)
+      .map(([key, value]) => `${key}: ${value ?? "-"}`)
+      .join("\n");
   }
 
   return (
@@ -223,7 +313,7 @@ export default function Estudiantes() {
         <h2>{canManageStudents ? "Crear, buscar y actualizar estudiantes" : "Consulta de estudiantes"}</h2>
         <p>
           {canManageStudents
-            ? "ADMIN y GUARDA pueden registrar estudiantes nuevos o cargarlos por documento/placa para actualizar sus datos."
+            ? "ADMIN y GUARDA pueden registrar estudiantes nuevos o buscarlos por documento o placa para actualizar sus datos."
             : "CONSULTA puede listar y buscar estudiantes, pero sin modificar registros."}
         </p>
       </header>
@@ -231,15 +321,35 @@ export default function Estudiantes() {
       <div className="cards-grid cards-grid--single">
         <article className="info-card info-card--workspace">
           <h3>{currentMode === "editar" ? "Registro cargado" : "Registrar o buscar estudiante"}</h3>
+          <div className="workspace-mode-row">
+            <span className={`movement-pill ${currentMode === "editar" ? "exit" : "entry"}`}>
+              {currentMode === "editar" ? "Modo edición" : "Modo registro"}
+            </span>
+            <span className="workspace-mode-copy">
+              {currentMode === "editar"
+                ? "Estás trabajando sobre un estudiante existente."
+                : "Completa el formulario para registrar un estudiante nuevo."}
+            </span>
+          </div>
+          {isGuardEditing ? (
+            <div className="form-note">
+              Como GUARDA solo puedes actualizar placa, color, celular y vigencia. Los datos de identidad quedan protegidos.
+            </div>
+          ) : null}
 
           {canManageStudents ? (
             <div className="student-scan-block">
               <QrScanner
                 title="Leer QR para primer ingreso"
-                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su informacion inmediatamente."
+                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su información inmediatamente."
                 buttonLabel="Escanear QR del estudiante"
                 onScan={async (decodedText) => {
                   const qrValue = decodedText.trim();
+                  if (!CIDE_QR_REGEX.test(qrValue)) {
+                    setStatus("");
+                    setError("El QR escaneado no tiene la estructura oficial de CIDE o supera 8 caracteres al final.");
+                    return;
+                  }
                   const candidates = getQrCandidates(qrValue);
                   const matchedStudent = students.find((student) => candidates.includes(student.qr_uid));
 
@@ -253,7 +363,7 @@ export default function Estudiantes() {
                     setScannedStudent(matchedStudent);
                     setLookupMode("documento");
                     setLookupValue(matchedStudent.documento || "");
-                    setStatus(`QR reconocido. ${matchedStudent.nombre} cargado para edicion.`);
+                    setStatus(`QR reconocido. ${matchedStudent.nombre} cargado para edición.`);
                     return;
                   }
 
@@ -272,7 +382,7 @@ export default function Estudiantes() {
               />
 
               <div className="student-scan-result">
-                <h4>Informacion del estudiante escaneado</h4>
+                <h4>Información del estudiante escaneado</h4>
                 {scannedStudent ? (
                   <dl className="scan-info-grid">
                     <div>
@@ -292,6 +402,10 @@ export default function Estudiantes() {
                       <dd>{scannedStudent.placa || "-"}</dd>
                     </div>
                     <div>
+                      <dt>Celular</dt>
+                      <dd>{scannedStudent.celular || "-"}</dd>
+                    </div>
+                    <div>
                       <dt>Creado por</dt>
                       <dd>{scannedStudent.created_by_username || "Sin responsable"}</dd>
                     </div>
@@ -301,13 +415,13 @@ export default function Estudiantes() {
                     </div>
                   </dl>
                 ) : (
-                  <div className="empty-state">Escanea un QR para ver aqui la informacion del estudiante.</div>
+                  <div className="empty-state">Escanea un QR para ver aquí la información del estudiante.</div>
                 )}
               </div>
             </div>
           ) : null}
 
-          <form className="inline-form" onSubmit={handleLookup}>
+          <form className="inline-form student-lookup-form" onSubmit={handleLookup}>
             <select value={lookupMode} onChange={(event) => setLookupMode(event.target.value)}>
               <option value="documento">Buscar por documento</option>
               <option value="placa">Buscar por placa</option>
@@ -315,9 +429,11 @@ export default function Estudiantes() {
 
             <input
               type="text"
-              placeholder={lookupMode === "documento" ? "Documento" : "Placa ABC12D"}
+              placeholder={lookupMode === "documento" ? "Ingresa el documento" : "Ingresa la placa, por ejemplo ABC12D"}
               value={lookupValue}
-              onChange={(event) => setLookupValue(lookupMode === "placa" ? normalizePlate(event.target.value) : event.target.value)}
+              onChange={(event) => setLookupValue(lookupMode === "placa" ? normalizePlate(event.target.value) : normalizeDocumento(event.target.value))}
+              inputMode={lookupMode === "documento" ? "numeric" : undefined}
+              maxLength={lookupMode === "documento" ? 10 : 6}
             />
             <button type="submit" disabled={loading}>
               {loading ? "Buscando..." : "Buscar"}
@@ -332,8 +448,11 @@ export default function Estudiantes() {
                   type="text"
                   value={form.documento}
                   onChange={(event) => handleChange("documento", event.target.value)}
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="Ejemplo: 12345678"
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -343,8 +462,9 @@ export default function Estudiantes() {
                   type="text"
                   value={form.qr_uid}
                   onChange={(event) => handleChange("qr_uid", event.target.value)}
+                  placeholder="https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2"
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -355,7 +475,7 @@ export default function Estudiantes() {
                   value={form.nombre}
                   onChange={(event) => handleChange("nombre", event.target.value)}
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -364,7 +484,7 @@ export default function Estudiantes() {
                 <select
                   value={form.carrera}
                   onChange={(event) => handleChange("carrera", event.target.value)}
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 >
                   {CAREERS.map((career) => (
                     <option key={career} value={career}>
@@ -372,6 +492,19 @@ export default function Estudiantes() {
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label>
+                Celular
+                <input
+                  type="text"
+                  value={form.celular}
+                  onChange={(event) => handleChange("celular", event.target.value)}
+                  placeholder="Número de contacto"
+                  inputMode="numeric"
+                  maxLength={10}
+                  disabled={!canManageStudents}
+                />
               </label>
 
               <label>
@@ -443,7 +576,7 @@ export default function Estudiantes() {
           </div>
 
           {students.length === 0 ? (
-            <div className="empty-state">Aun no hay estudiantes registrados.</div>
+            <div className="empty-state">Aún no hay estudiantes registrados.</div>
           ) : (
             <div className="table-wrap table-wrap--scrollable table-wrap--panel">
               <table className="data-table">
@@ -453,6 +586,7 @@ export default function Estudiantes() {
                     <th>Nombre</th>
                     <th>QR</th>
                     <th>Placa</th>
+                    <th>Celular</th>
                     <th>Vigencia</th>
                     <th>Creado por</th>
                     <th>Actualizado por</th>
@@ -465,6 +599,7 @@ export default function Estudiantes() {
                       <td>{student.nombre}</td>
                       <td>{student.qr_uid}</td>
                       <td>{student.placa || "-"}</td>
+                      <td>{student.celular || "-"}</td>
                       <td>{student.vigencia ? "Vigente" : "No vigente"}</td>
                       <td>{student.created_by_username || "Sin responsable"}</td>
                       <td>{student.updated_by_username || "Sin responsable"}</td>
@@ -475,6 +610,45 @@ export default function Estudiantes() {
             </div>
           )}
         </section>
+      ) : null}
+
+      {confirmState.open ? (
+        <div className="modal" aria-hidden="false">
+          <div
+            className="modal-backdrop"
+            onClick={() => setConfirmState({ open: false, payload: null, details: null })}
+          />
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="student-confirm-title"
+          >
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="student-confirm-title">Confirmar cambios del estudiante</h3>
+            <p className="modal-copy">
+              Se va a editar este estudiante. ¿Estás seguro de que deseas modificarlo? Verifica la información antes de guardar.
+            </p>
+            <pre className="modal-details">{formatConfirmationDetails(confirmState.details)}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => saveStudent(confirmState.payload, true)}
+              >
+                {loading ? "Guardando..." : "Confirmar"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setConfirmState({ open: false, payload: null, details: null })}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

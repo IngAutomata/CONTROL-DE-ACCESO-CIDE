@@ -2,16 +2,16 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 
 export default function QrScanner({
-  title = "Escaner QR",
-  helpText = "Activa la camara del equipo y apunta al codigo QR.",
-  buttonLabel = "Activar camara",
+  title = "Esc\u00e1ner QR",
+  helpText = "Activa la c\u00e1mara del equipo y apunta al c\u00f3digo QR.",
+  buttonLabel = "Activar c\u00e1mara",
   onScan,
 }) {
   const scannerId = useId().replace(/:/g, "");
   const scannerRef = useRef(null);
   const lastScannedRef = useRef("");
   const [isRunning, setIsRunning] = useState(false);
-  const [status, setStatus] = useState("Camara lista para iniciar.");
+  const [status, setStatus] = useState("C\u00e1mara lista para iniciar.");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,12 +42,12 @@ export default function QrScanner({
 
     scannerRef.current = null;
     setIsRunning(false);
-    setStatus("Camara detenida.");
+    setStatus("C\u00e1mara detenida.");
   }
 
   async function startScanner() {
     setError("");
-    setStatus("Solicitando acceso a la camara...");
+    setStatus("Solicitando acceso a la c\u00e1mara...");
 
     if (scannerRef.current) {
       await stopScanner();
@@ -85,12 +85,12 @@ export default function QrScanner({
       );
 
       setIsRunning(true);
-      setStatus("Camara activa. Apunta al QR para continuar.");
+      setStatus("C\u00e1mara activa. Apunta al QR para continuar.");
     } catch (cameraError) {
       scannerRef.current = null;
       setIsRunning(false);
-      setError("No se pudo iniciar la camara. Revisa permisos o disponibilidad del dispositivo.");
-      setStatus("Camara no disponible.");
+      setError("No se pudo iniciar la c\u00e1mara. Revisa permisos o disponibilidad del dispositivo.");
+      setStatus("C\u00e1mara no disponible.");
       try {
         await scanner.clear();
       } catch (_) {
@@ -113,7 +113,7 @@ export default function QrScanner({
             </button>
           ) : (
             <button type="button" className="ghost-button" onClick={stopScanner}>
-              Detener camara
+              {"Detener c\u00e1mara"}
             </button>
           )}
         </div>

@@ -2,6 +2,20 @@ const pool = require("../config/database");
 const estudiantesModel = require("../models/estudiantes.model");
 const movimientosModel = require("../models/movimientos.model");
 
+const QR_CIDE_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
+
+function esQrCideValido(value) {
+  return typeof value === "string" && QR_CIDE_REGEX.test(value.trim());
+}
+
+function normalizarTexto(value) {
+  return typeof value === "string" ? value.trim() : value;
+}
+
+function normalizarPlaca(value) {
+  return typeof value === "string" ? value.trim().toUpperCase() : value;
+}
+
 function extraerQrUid(input) {
   if (!input || typeof input !== "string") return null;
 
@@ -39,26 +53,52 @@ function parseId(rawId) {
 async function registrarMovimiento(req, res, next) {
   const body = req.body || {};
   const qrRaw = body.qr_uid || body.qr_url;
+  const documento = normalizarTexto(body.documento);
+  const placa = normalizarPlaca(body.placa);
   const qrUid = extraerQrUid(qrRaw);
   const qrCandidates = construirQrCandidates(qrRaw);
 
-  if (!qrUid) {
+  if (!qrRaw && !documento && !placa) {
+    return res.status(400).json({ error: "Falta qr_uid, qr_url, documento o placa" });
+  }
+
+  if (qrRaw && !qrUid) {
     return res.status(400).json({ error: "Falta qr_uid o qr_url" });
+  }
+
+  if (qrRaw && !esQrCideValido(qrRaw)) {
+    return res.status(400).json({ error: "qr_uid debe tener formato QR de CIDE" });
   }
 
   const client = await pool.connect();
 
   try {
-    console.log("[movimientos] POST /movimientos/registrar", { qr_uid: qrUid });
+    console.log("[movimientos] POST /movimientos/registrar", { qr_uid: qrUid, documento, placa });
     await client.query("BEGIN");
 
-    const est = estudiantesModel.findByQrCandidatesForUpdate
-      ? await estudiantesModel.findByQrCandidatesForUpdate(client, qrCandidates)
-      : await estudiantesModel.findByQrUidForUpdate(client, qrUid);
+    let est;
+    if (qrRaw) {
+      est = estudiantesModel.findByQrCandidatesForUpdate
+        ? await estudiantesModel.findByQrCandidatesForUpdate(client, qrCandidates)
+        : await estudiantesModel.findByQrUidForUpdate(client, qrUid);
+    } else if (documento) {
+      est = estudiantesModel.findByDocumentoForUpdate
+        ? await estudiantesModel.findByDocumentoForUpdate(client, documento)
+        : await estudiantesModel.findByDocumento(documento);
+    } else {
+      est = estudiantesModel.findByPlacaForUpdate
+        ? await estudiantesModel.findByPlacaForUpdate(client, placa)
+        : await estudiantesModel.findByPlaca(placa);
+    }
 
     if (est.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "QR no registrado", qr_uid: qrUid });
+      return res.status(404).json({
+        error: qrRaw ? "QR no registrado" : "Estudiante no encontrado",
+        qr_uid: qrRaw ? qrUid : undefined,
+        documento: documento || undefined,
+        placa: placa || undefined,
+      });
     }
 
     const estudiante = est.rows[0];

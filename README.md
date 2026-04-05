@@ -179,6 +179,7 @@ Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
   - cargar `qr_uid` en el primer registro del estudiante
   - registrar automaticamente `ENTRADA` o `SALIDA` en movimientos usando el mismo QR
 - La interfaz actual estable para operacion diaria sigue siendo la de `backend/public`; el React se trabaja en paralelo hasta completar la migracion visual y funcional.
+- La base ya soporta auditoria de responsables para estudiantes y movimientos; los registros nuevos o editados despues de correr `ensure-audit-columns.js` ya pueden mostrar `Creado por`, `Actualizado por` y `Responsable`.
 
 ## Estado del frontend React
 Objetivo: construir una version moderna del portal sin romper la interfaz operativa actual.
@@ -194,6 +195,10 @@ Objetivo: construir una version moderna del portal sin romper la interfaz operat
 - branding `SIU` y primera alineacion visual con estilo institucional
 - lectura QR por camara del computador con `html5-qrcode`
 - registro automatico de entrada/salida desde escaneo real en la pantalla de movimientos
+- ajustes visuales y textuales en `Login`, `Dashboard`, `Estudiantes` y `Movimientos`
+- placeholders mas claros para acceso, busqueda y formularios
+- mejor consistencia en botones secundarios, estados vacios y mensajes de estado
+- build validado con `npm run build`
 
 ### Aun en trabajo
 - sidebar y layout mas cercanos al SOE
@@ -214,6 +219,20 @@ Notas:
 - si el QR contiene una URL completa, el backend extrae el ultimo segmento como `qr_uid`
 - la camara del navegador requiere permisos del dispositivo
 - para desarrollo local, mantener backend y React corriendo al tiempo
+
+### Pantallas React revisadas recientemente
+- `frontend/src/pages/Login.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/Estudiantes.jsx`
+- `frontend/src/pages/Movimientos.jsx`
+- `frontend/src/styles.css`
+
+Cambios aplicados:
+- revision de textos visibles, placeholders y mensajes cortos
+- mejora de claridad en formularios de acceso, estudiantes y movimientos
+- mejor lectura visual de mensajes informativos y estados vacios
+- ajustes pequenos de espaciado, hover y consistencia en botones secundarios
+- mejor respiracion visual en tarjetas y paneles en pantallas pequenas
 
 ### Regla importante
 - no integrar `frontend/dist` al repositorio

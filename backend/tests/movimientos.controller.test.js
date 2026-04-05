@@ -63,7 +63,9 @@ async function runTest(name, fn) {
 }
 
 (async () => {
-  await runTest("registrarMovimiento exige qr_uid o qr_url", async () => {
+  const VALID_QR = "https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2";
+
+  await runTest("registrarMovimiento exige qr_uid, qr_url, documento o placa", async () => {
     const { registrarMovimiento } = loadController({
       poolMock: {
         connect: async () => ({ query: async () => ({ rows: [] }), release() {} }),
@@ -83,7 +85,30 @@ async function runTest(name, fn) {
     await registrarMovimiento(req, res, () => {});
 
     assert.equal(res.statusCode, 400);
-    assert.deepEqual(res.body, { error: "Falta qr_uid o qr_url" });
+    assert.deepEqual(res.body, { error: "Falta qr_uid, qr_url, documento o placa" });
+  });
+
+  await runTest("registrarMovimiento rechaza qr fuera de estructura CIDE", async () => {
+    const { registrarMovimiento } = loadController({
+      poolMock: {
+        connect: async () => ({ query: async () => ({ rows: [] }), release() {} }),
+      },
+      estudiantesModelMock: {
+        findByQrUidForUpdate: async () => ({ rows: [] }),
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [] }),
+        createMovimiento: async () => ({ rows: [] }),
+      },
+    });
+
+    const req = { body: { qr_uid: "QR001" } };
+    const res = createRes();
+
+    await registrarMovimiento(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "qr_uid debe tener formato QR de CIDE" });
   });
 
   await runTest("registrarMovimiento retorna 403 si estudiante no vigente", async () => {
@@ -104,13 +129,94 @@ async function runTest(name, fn) {
       },
     });
 
-    const req = { body: { qr_uid: "QR001" } };
+    const req = { body: { qr_uid: VALID_QR } };
     const res = createRes();
 
     await registrarMovimiento(req, res, () => {});
 
     assert.equal(res.statusCode, 403);
     assert.deepEqual(res.body, { error: "Estudiante no vigente", estudiante_id: 10 });
+  });
+
+  await runTest("registrarMovimiento permite registrar por documento", async () => {
+    const calls = [];
+    const client = {
+      query: async () => ({ rows: [] }),
+      release() {},
+    };
+
+    const { registrarMovimiento } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        findByDocumentoForUpdate: async (_client, documento) => {
+          calls.push({ op: "findByDocumentoForUpdate", documento });
+          return {
+            rows: [{ id: 15, documento: "12345678", nombre: "Luis", carrera: "Ing", vigencia: true }],
+          };
+        },
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [] }),
+        createMovimiento: async (_client, estudianteId, tipo, audit) => {
+          calls.push({ op: "createMovimiento", estudianteId, tipo, audit });
+          return { rows: [{ id: 91, estudiante_id: estudianteId, tipo, fecha_hora: "2026-04-04T16:00:00.000Z" }] };
+        },
+      },
+    });
+
+    const req = {
+      user: { id: 42, username: "guarda", role: "GUARDA" },
+      body: { documento: "12345678" },
+    };
+    const res = createRes();
+
+    await registrarMovimiento(req, res, () => {});
+
+    assert.equal(res.statusCode, 201);
+    assert.ok(calls.some((c) => c.op === "findByDocumentoForUpdate" && c.documento === "12345678"));
+    assert.ok(calls.some((c) => c.op === "createMovimiento" && c.estudianteId === 15 && c.tipo === "ENTRADA"));
+  });
+
+  await runTest("registrarMovimiento permite registrar por placa", async () => {
+    const calls = [];
+    const client = {
+      query: async () => ({ rows: [] }),
+      release() {},
+    };
+
+    const { registrarMovimiento } = loadController({
+      poolMock: {
+        connect: async () => client,
+      },
+      estudiantesModelMock: {
+        findByPlacaForUpdate: async (_client, placa) => {
+          calls.push({ op: "findByPlacaForUpdate", placa });
+          return {
+            rows: [{ id: 19, documento: "12345678", nombre: "Luis", carrera: "Ing", vigencia: true }],
+          };
+        },
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [] }),
+        createMovimiento: async (_client, estudianteId, tipo) => {
+          calls.push({ op: "createMovimiento", estudianteId, tipo });
+          return { rows: [{ id: 92, estudiante_id: estudianteId, tipo, fecha_hora: "2026-04-04T16:00:00.000Z" }] };
+        },
+      },
+    });
+
+    const req = {
+      body: { placa: "abc12d" },
+    };
+    const res = createRes();
+
+    await registrarMovimiento(req, res, () => {});
+
+    assert.equal(res.statusCode, 201);
+    assert.ok(calls.some((c) => c.op === "findByPlacaForUpdate" && c.placa === "ABC12D"));
+    assert.ok(calls.some((c) => c.op === "createMovimiento" && c.estudianteId === 19 && c.tipo === "ENTRADA"));
   });
 
   await runTest("registrarMovimiento alterna a SALIDA cuando ultimo movimiento fue ENTRADA", async () => {
@@ -150,7 +256,7 @@ async function runTest(name, fn) {
     const req = {
       user: { id: 42, username: "guarda", role: "GUARDA" },
       body: {
-        qr_url: "https://cide.edu/qr/QR001?source=lector#abc",
+        qr_url: VALID_QR,
       },
     };
     const res = createRes();
@@ -159,7 +265,7 @@ async function runTest(name, fn) {
 
     assert.equal(res.statusCode, 201);
     assert.equal(res.body.movimiento.tipo, "SALIDA");
-    assert.ok(calls.some((c) => c.op === "findByQrUidForUpdate" && c.qrUid === "QR001"));
+    assert.ok(calls.some((c) => c.op === "findByQrUidForUpdate" && c.qrUid === "NjEyMzE2"));
     assert.ok(
       calls.some(
         (c) =>

@@ -72,6 +72,8 @@ async function runTest(name, fn) {
 }
 
 (async () => {
+  const VALID_QR = "https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2";
+
   await runTest("listarUsuarios retorna count y usuarios", async () => {
     const fakeRows = [{ id: 1, username: "admin", role: "ADMIN" }];
     const { listarUsuarios } = loadController({
@@ -308,6 +310,9 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
         updateById: async () => {
           throw duplicateError;
         },
@@ -320,10 +325,11 @@ async function runTest(name, fn) {
     const req = {
       params: { id: "3" },
       body: {
-        documento: "123456",
-        qr_uid: "QR001",
+        documento: "12345678",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
+        celular: "3001234567",
         vigencia: true,
         placa: "ABC12D",
         color: "Negro",
@@ -337,6 +343,129 @@ async function runTest(name, fn) {
     assert.deepEqual(res.body, { error: "qr_uid ya esta registrado en otro estudiante" });
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
     assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
+  });
+
+  await runTest("actualizarEstudiante rechaza documento invalido", async () => {
+    const { actualizarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        updateById: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+    });
+
+    const req = {
+      params: { id: "3" },
+      body: {
+        documento: "12A4567",
+        qr_uid: VALID_QR,
+        nombre: "Luis",
+        carrera: "Ing",
+        celular: "3001234567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "documento debe tener entre 8 y 10 digitos numericos" });
+  });
+
+  await runTest("actualizarEstudiante rechaza qr_uid fuera de estructura CIDE", async () => {
+    const { actualizarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        updateById: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+    });
+
+    const req = {
+      params: { id: "3" },
+      body: {
+        documento: "12345678",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        celular: "3001234567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "qr_uid debe tener formato QR de CIDE" });
+  });
+
+  await runTest("actualizarEstudiante rechaza celular invalido", async () => {
+    const { actualizarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        updateById: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+    });
+
+    const req = {
+      params: { id: "3" },
+      body: {
+        documento: "12345678",
+        qr_uid: VALID_QR,
+        nombre: "Luis",
+        carrera: "Ing",
+        celular: "300-123-4567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "celular debe tener solo numeros y maximo 10 caracteres" });
   });
 
   await runTest("actualizarEstudiantePorDocumento usa documento como llave de busqueda", async () => {
@@ -355,12 +484,15 @@ async function runTest(name, fn) {
       bcryptMock: {},
       estudiantesModelMock: {
         findByDocumento: async () => ({
-          rows: [{ estudiante_id: 11, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        findById: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
         }),
         updateById: async (_client, id, _payload, audit) => {
           auditSeen = audit;
           return {
-          rows: [{ id, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
+          rows: [{ id, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true }],
           };
         },
       },
@@ -371,12 +503,13 @@ async function runTest(name, fn) {
 
     const req = {
       user: { id: 55, username: "guarda", role: "GUARDA" },
-      params: { documento: "123456" },
+      params: { documento: "12345678" },
       body: {
-        documento: "123456",
-        qr_uid: "QR001",
+        documento: "12345678",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
+        celular: "3001234567",
         vigencia: true,
         placa: "ABC12D",
         color: "Negro",
@@ -390,6 +523,58 @@ async function runTest(name, fn) {
     assert.equal(res.body.estudiante.id, 11);
     assert.deepEqual(auditSeen, { actorUserId: 55 });
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
+  });
+
+  await runTest("actualizarEstudiantePorDocumento rechaza cambios de identidad para GUARDA", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const { actualizarEstudiantePorDocumento } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findByDocumento: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        findById: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        updateById: async () => {
+          throw new Error("No debe actualizar cuando GUARDA cambia identidad");
+        },
+      },
+      poolMock: {
+        connect: async () => client,
+      },
+    });
+
+    const req = {
+      user: { id: 55, username: "guarda", role: "GUARDA" },
+      params: { documento: "12345678" },
+      body: {
+        documento: "87654321",
+        qr_uid: VALID_QR,
+        nombre: "Otro Nombre",
+        carrera: "Otra Carrera",
+        celular: "3001234567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiantePorDocumento(req, res, () => {});
+
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(res.body, { error: "GUARDA solo puede actualizar placa, color, celular y vigencia" });
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
   });
 
   await runTest("eliminarEstudiante elimina cuando existe", async () => {

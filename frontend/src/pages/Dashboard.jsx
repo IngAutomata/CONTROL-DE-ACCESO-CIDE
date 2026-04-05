@@ -7,13 +7,34 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? value : `${date.toLocaleDateString("es-CO")} ${date.toLocaleTimeString("es-CO")}`;
 }
 
+function getRoleSnapshot(role) {
+  if (role === "ADMIN") {
+    return {
+      label: "Cobertura completa",
+      detail: "Usuarios, estudiantes, movimientos y monitoreo.",
+    };
+  }
+
+  if (role === "GUARDA") {
+    return {
+      label: "Turno operativo",
+      detail: "Control de acceso, presencia activa y validaci\u00f3n de estudiantes.",
+    };
+  }
+
+  return {
+    label: "Lectura supervisada",
+    detail: "Consulta de estado del campus e historial reciente.",
+  };
+}
+
 function buildSummary(role, counts) {
   if (role === "ADMIN") {
     return {
       title: "Control total del sistema",
-      description: "Gestiona usuarios, revisa historicos y monitorea la operacion completa del campus.",
+      description: "Gestiona usuarios, revisa hist\u00f3ricos y monitorea la operaci\u00f3n completa del campus.",
       priority: counts.users > 0
-        ? "Revisa presencia activa, valida el ultimo evento y mantén actualizada la base operativa."
+        ? "Revisa presencia activa, valida el \u00faltimo evento y mant\u00e9n actualizada la base operativa."
         : "Carga primero los usuarios del sistema para completar el panorama administrativo.",
       actions: [
         "Validar usuarios del sistema",
@@ -25,10 +46,10 @@ function buildSummary(role, counts) {
 
   if (role === "GUARDA") {
     return {
-      title: "Operacion de acceso",
-      description: "Registra entradas y salidas, valida estudiantes y supervisa quienes estan dentro del campus.",
+      title: "Operaci\u00f3n de acceso",
+      description: "Registra entradas y salidas, valida estudiantes y supervisa qui\u00e9nes est\u00e1n dentro del campus.",
       priority: counts.inside > 0
-        ? "Prioriza el control de presencia y mantén visible el ultimo evento procesado."
+        ? "Prioriza el control de presencia y mant\u00e9n visible el \u00faltimo evento procesado."
         : "Comienza con un escaneo QR o verifica estudiantes antes de iniciar turno.",
       actions: [
         "Escanear QR para acceso",
@@ -40,14 +61,14 @@ function buildSummary(role, counts) {
 
   return {
     title: "Consulta controlada",
-    description: "Accede a informacion de lectura para seguimiento y reportes sin modificar registros.",
+    description: "Accede a informaci\u00f3n de lectura para seguimiento y reportes sin modificar registros.",
     priority: counts.movements > 0
-      ? "Usa el historial y el estado del campus para seguimiento sin intervenir la operacion."
-      : "Carga informacion de movimientos para tener contexto operativo.",
+      ? "Usa el historial y el estado del campus para seguimiento sin intervenir la operaci\u00f3n."
+      : "Carga informaci\u00f3n de movimientos para tener contexto operativo.",
     actions: [
       "Ver estudiantes dentro del campus",
       "Consultar historial reciente",
-      "Verificar informacion general",
+      "Verificar informaci\u00f3n general",
     ],
   };
 }
@@ -67,12 +88,44 @@ export default function Dashboard() {
   const [latestInside, setLatestInside] = useState(null);
 
   const summary = useMemo(() => buildSummary(role, counts), [counts, role]);
+  const roleSnapshot = useMemo(() => getRoleSnapshot(role), [role]);
+  const dashboardStatus = useMemo(() => {
+    if (loadingData) {
+      return {
+        tone: "blue",
+        label: "Actualizando tablero",
+        detail: "Sincronizando estudiantes, movimientos y presencia activa.",
+      };
+    }
+
+    if (error) {
+      return {
+        tone: "danger",
+        label: "Revisi\u00f3n requerida",
+        detail: "No fue posible cargar el tablero completo. Revisa conectividad o permisos.",
+      };
+    }
+
+    if (latestMovement) {
+      return {
+        tone: latestMovement.tipo === "ENTRADA" ? "green" : "orange",
+        label: `${latestMovement.tipo} visible`,
+        detail: `${latestMovement.nombre} - ${formatDate(latestMovement.fecha_hora)}`,
+      };
+    }
+
+    return {
+      tone: "neutral",
+      label: "Sin actividad reciente",
+      detail: "El tablero est\u00e1 listo, pero a\u00fan no hay eventos visibles en esta sesi\u00f3n.",
+    };
+  }, [error, latestMovement, loadingData]);
 
   const metricCards = useMemo(() => ([
     {
       title: "Dentro del campus",
       value: counts.inside,
-      detail: latestInside ? `Ultimo ingreso visible: ${latestInside.nombre}` : "Sin presencia activa visible",
+      detail: latestInside ? `\u00daltimo ingreso visible: ${latestInside.nombre}` : "Sin presencia activa visible",
       tone: "green",
     },
     {
@@ -88,9 +141,9 @@ export default function Dashboard() {
       tone: "orange",
     },
     {
-      title: "Ultimo evento",
+      title: "\u00daltimo evento",
       value: latestMovement?.tipo || "Sin datos",
-      detail: latestMovement ? `${latestMovement.nombre} · ${formatDate(latestMovement.fecha_hora)}` : "Aun no hay actividad reciente",
+      detail: latestMovement ? `${latestMovement.nombre} - ${formatDate(latestMovement.fecha_hora)}` : "A\u00fan no hay actividad reciente",
       tone: "accent",
     },
   ]), [counts.inside, counts.movements, counts.students, counts.users, latestInside, latestMovement, role]);
@@ -98,10 +151,11 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadDashboard() {
-      setLoadingData(true);
-      setError("");
-
+    async function loadDashboard({ silent = false } = {}) {
+      if (!silent) {
+        setLoadingData(true);
+        setError("");
+      }
       try {
         const requests = [
           apiRequest("/auth/me"),
@@ -132,7 +186,7 @@ export default function Dashboard() {
           setError(err.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !silent) {
           setLoadingData(false);
         }
       }
@@ -140,8 +194,13 @@ export default function Dashboard() {
 
     loadDashboard();
 
+    const interval = window.setInterval(() => {
+      loadDashboard({ silent: true }).catch(() => null);
+    }, 10000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [apiRequest, role]);
 
@@ -157,7 +216,7 @@ export default function Dashboard() {
         <div className="welcome-panel__main">
           <h3>Portal principal</h3>
           <p className="welcome-panel__headline">
-            Panel operativo del <strong>SIUC</strong> para control de acceso, validacion y seguimiento institucional.
+            {"Panel operativo del "}<strong>SIUC</strong>{" para control de acceso, validaci\u00f3n y seguimiento institucional."}
           </p>
           <div className="welcome-panel__meta">
             <span>{role || "Sin rol"}</span>
@@ -171,6 +230,19 @@ export default function Dashboard() {
           </div>
           <p>Presencia activa</p>
         </div>
+      </section>
+
+      <section className="dashboard-strip">
+        <article className={`dashboard-strip__card dashboard-strip__card--${dashboardStatus.tone}`}>
+          <span className="dashboard-strip__label">Estado del tablero</span>
+          <strong>{dashboardStatus.label}</strong>
+          <p>{dashboardStatus.detail}</p>
+        </article>
+        <article className="dashboard-strip__card dashboard-strip__card--neutral">
+          <span className="dashboard-strip__label">Cobertura del rol</span>
+          <strong>{roleSnapshot.label}</strong>
+          <p>{roleSnapshot.detail}</p>
+        </article>
       </section>
 
       <div className="stats-grid">
@@ -196,7 +268,7 @@ export default function Dashboard() {
         </article>
 
         <article className="info-card">
-          <p className="eyebrow">Siguiente accion recomendada</p>
+          <p className="eyebrow">{"Siguiente acci\u00f3n recomendada"}</p>
           <h3>Ruta sugerida para este rol</h3>
           <ul className="feature-list">
             {summary.actions.map((action) => (
@@ -208,7 +280,7 @@ export default function Dashboard() {
 
       <div className="cards-grid">
         <article className="info-card">
-          <p className="eyebrow">Ultimo movimiento visible</p>
+          <p className="eyebrow">{"\u00daltimo movimiento visible"}</p>
           <h3>Actividad reciente del sistema</h3>
           {latestMovement ? (
             <div className="scan-result">
@@ -219,11 +291,12 @@ export default function Dashboard() {
               <div className="scan-result__meta">
                 <span>Documento: {latestMovement.documento}</span>
                 <span>Hora: {formatDate(latestMovement.fecha_hora)}</span>
+                <span>Responsable: {latestMovement.actor_username || "Sin responsable"}</span>
                 <span>Rol actual: {role || "Sin rol"}</span>
               </div>
             </div>
           ) : (
-            <div className="empty-state">Aun no hay movimientos visibles para alimentar el tablero.</div>
+            <div className="empty-state">{"A\u00fan no hay movimientos visibles para alimentar el tablero."}</div>
           )}
         </article>
 
@@ -237,7 +310,8 @@ export default function Dashboard() {
               <div className="scan-result__meta">
                 <span>Documento: {latestInside.documento}</span>
                 <span>Placa: {latestInside.placa || "-"}</span>
-                <span>Ultimo ingreso: {formatDate(latestInside.fecha_ultimo_movimiento)}</span>
+                <span>{`\u00daltimo ingreso: ${formatDate(latestInside.fecha_ultimo_movimiento)}`}</span>
+                <span>Responsable: {latestInside.actor_username || "Sin responsable"}</span>
               </div>
             </div>
           ) : (

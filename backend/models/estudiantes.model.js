@@ -34,6 +34,7 @@ function buildStudentSelect(capabilities = {}) {
       e.qr_uid,
       e.nombre,
       e.carrera,
+      e.celular,
       e.vigencia,
       ${createdByFields}
       ${updatedByFields}
@@ -58,11 +59,11 @@ async function findByIdWithDb(db, id) {
 }
 
 async function createPrimerIngreso(client, payload, audit = {}) {
-  const { documento, qr_uid, nombre, carrera, vigencia, placa, color } = payload;
+  const { documento, qr_uid, nombre, carrera, celular = null, vigencia, placa, color } = payload;
   const { actorUserId = null } = audit;
   const capabilities = await getAuditCapabilities(client);
-  const fields = ["documento", "qr_uid", "nombre", "carrera", "vigencia"];
-  const values = [documento, qr_uid, nombre, carrera, vigencia];
+  const fields = ["documento", "qr_uid", "nombre", "carrera", "celular", "vigencia"];
+  const values = [documento, qr_uid, nombre, carrera, celular, vigencia];
 
   if (capabilities.estudianteCreatedBy) {
     fields.push("created_by_user_id");
@@ -128,16 +129,17 @@ async function findById(id) {
 }
 
 async function updateById(client, id, payload, audit = {}) {
-  const { documento, qr_uid, nombre, carrera, vigencia, placa, color } = payload;
+  const { documento, qr_uid, nombre, carrera, celular = null, vigencia, placa, color } = payload;
   const { actorUserId = null } = audit;
   const capabilities = await getAuditCapabilities(client);
-  const values = [documento, qr_uid, nombre, carrera, vigencia];
+  const values = [documento, qr_uid, nombre, carrera, celular, vigencia];
   const assignments = [
     "documento = $1",
     "qr_uid = $2",
     "nombre = $3",
     "carrera = $4",
-    "vigencia = $5",
+    "celular = $5",
+    "vigencia = $6",
   ];
 
   if (capabilities.estudianteUpdatedBy) {
@@ -179,7 +181,7 @@ async function deleteById(client, id) {
     `
     DELETE FROM estudiantes
     WHERE id = $1
-    RETURNING id, documento, qr_uid, nombre, carrera, vigencia
+    RETURNING id, documento, qr_uid, nombre, carrera, celular, vigencia
     `,
     [id]
   );
@@ -197,7 +199,7 @@ async function listAll() {
 
 async function findByQrUidForUpdate(client, qrUid) {
   return client.query(
-    "SELECT id, documento, qr_uid, nombre, carrera, vigencia FROM estudiantes WHERE qr_uid = $1 FOR UPDATE",
+    "SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia FROM estudiantes WHERE qr_uid = $1 FOR UPDATE",
     [qrUid]
   );
 }
@@ -211,7 +213,7 @@ async function findByQrCandidatesForUpdate(client, candidates) {
 
   return client.query(
     `
-    SELECT id, documento, qr_uid, nombre, carrera, vigencia
+    SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia
     FROM estudiantes
     WHERE qr_uid = ANY($1::text[])
     ORDER BY CASE WHEN qr_uid = $2 THEN 0 ELSE 1 END, id DESC
@@ -221,10 +223,38 @@ async function findByQrCandidatesForUpdate(client, candidates) {
   );
 }
 
+async function findByDocumentoForUpdate(client, documento) {
+  return client.query(
+    `
+    SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia
+    FROM estudiantes
+    WHERE documento = $1
+    FOR UPDATE
+    `,
+    [documento]
+  );
+}
+
+async function findByPlacaForUpdate(client, placa) {
+  return client.query(
+    `
+    SELECT e.id, e.documento, e.qr_uid, e.nombre, e.carrera, e.celular, e.vigencia
+    FROM estudiantes e
+    JOIN motocicletas m ON m.estudiante_id = e.id
+    WHERE UPPER(m.placa) = UPPER($1)
+    LIMIT 1
+    FOR UPDATE
+    `,
+    [placa]
+  );
+}
+
 module.exports = {
   createPrimerIngreso,
   findByDocumento,
+  findByDocumentoForUpdate,
   findByPlaca,
+  findByPlacaForUpdate,
   findById,
   listAll,
   findByQrUidForUpdate,

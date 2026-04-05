@@ -6,7 +6,7 @@ const menuByRole = {
     { to: "/", label: "Inicio", icon: "IN" },
     { to: "/estudiantes", label: "Estudiantes", icon: "ES" },
     { to: "/movimientos", label: "Movimientos", icon: "MV" },
-    { to: "/admin", label: "Administracion", icon: "AD" },
+    { to: "/admin", label: "Administraci\u00f3n", icon: "AD" },
   ],
   GUARDA: [
     { to: "/", label: "Inicio", icon: "IN" },
@@ -26,8 +26,15 @@ export default function Navbar() {
   const roleCopy = role === "ADMIN"
     ? "Acceso administrativo completo"
     : role === "GUARDA"
-      ? "Operacion de acceso y monitoreo"
+      ? "Operaci\u00f3n de acceso y monitoreo"
       : "Consulta y seguimiento";
+  const roleLabel = role === "ADMIN"
+    ? "Rol activo: ADMIN"
+    : role === "GUARDA"
+      ? "Rol activo: GUARDA"
+      : role === "CONSULTA"
+        ? "Rol activo: CONSULTA"
+        : "Rol activo: -";
 
   return (
     <aside className="sidebar">
@@ -37,7 +44,7 @@ export default function Navbar() {
         <p className="sidebar__portal">Portal operativo</p>
       </div>
 
-      <div className="sidebar__toggle">≡</div>
+      <div className="sidebar__toggle" aria-hidden="true">&#9776;</div>
 
       <nav className="sidebar__nav">
         {items.map((item) => (
@@ -56,13 +63,13 @@ export default function Navbar() {
       <div className="sidebar__footer">
         <div className="sidebar__session">
           <span className="sidebar__welcome">Bienvenido</span>
-          <span className="sidebar__user">{user?.username || "Sin sesion"}</span>
-          <span className="sidebar__role">{role || "-"}</span>
+          <span className="sidebar__user">{user?.username || "Sin sesi\u00f3n"}</span>
+          <span className="sidebar__role">{roleLabel}</span>
           <span className="sidebar__role-copy">{roleCopy}</span>
         </div>
 
         <button type="button" className="sidebar__logout" onClick={logout}>
-          Cerrar sesion
+          {"Cerrar sesi\u00f3n"}
         </button>
       </div>
     </aside>

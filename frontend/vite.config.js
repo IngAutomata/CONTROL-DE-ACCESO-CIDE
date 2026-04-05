@@ -6,11 +6,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/auth": "http://localhost:3000",
-      "/admin": "http://localhost:3000",
-      "/estudiantes": "http://localhost:3000",
-      "/movimientos": "http://localhost:3000",
-      "/health": "http://localhost:3000",
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
   },
 });

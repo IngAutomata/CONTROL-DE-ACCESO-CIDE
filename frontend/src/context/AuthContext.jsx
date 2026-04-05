@@ -17,6 +17,7 @@ function clearLegacyLocalStorage() {
 }
 
 async function apiRequest(url, options = {}, token) {
+  const requestUrl = typeof url === "string" && url.startsWith("/") ? `/api${url}` : url;
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),
@@ -26,7 +27,7 @@ async function apiRequest(url, options = {}, token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(requestUrl, {
     ...options,
     headers,
   });

@@ -54,6 +54,8 @@ async function runTest(name, fn) {
 }
 
 (async () => {
+  const VALID_QR = "https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2";
+
   await runTest("primerIngreso exige qr_uid", async () => {
     const { primerIngreso } = loadController({
       poolMock: {
@@ -71,7 +73,7 @@ async function runTest(name, fn) {
 
     const req = {
       body: {
-        documento: "123456",
+        documento: "12345678",
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
@@ -104,8 +106,8 @@ async function runTest(name, fn) {
 
     const req = {
       body: {
-        documento: "123456",
-        qr_uid: "QR001",
+        documento: "12345678",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
@@ -121,6 +123,109 @@ async function runTest(name, fn) {
     assert.deepEqual(res.body, { error: "placa debe tener formato ABC12D" });
   });
 
+  await runTest("primerIngreso rechaza documento invalido", async () => {
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "12A4567",
+        qr_uid: VALID_QR,
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await primerIngreso(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "documento debe tener entre 8 y 10 digitos numericos" });
+  });
+
+  await runTest("primerIngreso rechaza qr_uid fuera de estructura CIDE", async () => {
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "12345678",
+        qr_uid: "QR001",
+        nombre: "Luis",
+        carrera: "Ing",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await primerIngreso(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "qr_uid debe tener formato QR de CIDE" });
+  });
+
+  await runTest("primerIngreso rechaza celular invalido", async () => {
+    const { primerIngreso } = loadController({
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+      estudiantesModelMock: {
+        createPrimerIngreso: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+    });
+
+    const req = {
+      body: {
+        documento: "12345678",
+        qr_uid: VALID_QR,
+        nombre: "Luis",
+        carrera: "Ing",
+        celular: "300-123-4567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await primerIngreso(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "celular debe tener solo numeros y maximo 10 caracteres" });
+  });
+
   await runTest("primerIngreso crea registro incluyendo qr_uid", async () => {
     const queries = [];
     const client = {
@@ -133,8 +238,8 @@ async function runTest(name, fn) {
 
     const fakeEstudiante = {
       id: 1,
-      documento: "123456",
-      qr_uid: "QR001",
+      documento: "12345678",
+      qr_uid: VALID_QR,
       nombre: "Luis",
       carrera: "Ing",
       vigencia: true,
@@ -159,10 +264,11 @@ async function runTest(name, fn) {
     const req = {
       user: { id: 99, username: "admin", role: "ADMIN" },
       body: {
-        documento: "123456",
-        qr_uid: "QR001",
+        documento: "12345678",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
+        celular: "3001234567",
         vigencia: true,
         placa: "abc12d",
         color: "Negro",
@@ -173,7 +279,7 @@ async function runTest(name, fn) {
     await primerIngreso(req, res, () => {});
 
     assert.equal(res.statusCode, 201);
-    assert.equal(res.body.estudiante.qr_uid, "QR001");
+    assert.equal(res.body.estudiante.qr_uid, VALID_QR);
     assert.deepEqual(payloadSeen, { ...req.body, placa: "ABC12D" });
     assert.deepEqual(auditSeen, { actorUserId: 99 });
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
@@ -207,8 +313,8 @@ async function runTest(name, fn) {
 
     const req = {
       body: {
-        documento: "123999",
-        qr_uid: "QR001",
+        documento: "12345679",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,
@@ -255,8 +361,8 @@ async function runTest(name, fn) {
 
     const req = {
       body: {
-        documento: "123999",
-        qr_uid: "QR999",
+        documento: "12345679",
+        qr_uid: VALID_QR,
         nombre: "Luis",
         carrera: "Ing",
         vigencia: true,

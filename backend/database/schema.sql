@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS estudiantes (
   qr_uid VARCHAR(120) UNIQUE NOT NULL,
   nombre VARCHAR(120) NOT NULL,
   carrera VARCHAR(120) NOT NULL,
+  celular VARCHAR(20),
   vigencia BOOLEAN NOT NULL,
   created_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
   updated_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,

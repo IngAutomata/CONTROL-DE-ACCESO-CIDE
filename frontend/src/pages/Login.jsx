@@ -6,7 +6,7 @@ export default function Login() {
   const { isAuthenticated, login, loading } = useAuth();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
-  const [loginState, setLoginState] = useState("Portal listo para autenticacion.");
+  const [loginState, setLoginState] = useState("Portal listo para autenticaci\u00f3n.");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -23,11 +23,11 @@ export default function Login() {
 
     try {
       const user = await login(form.username, form.password);
-      setLoginState(`Acceso validado para ${user.username}. Cargando modulo ${user.role}...`);
+      setLoginState(`Acceso validado para ${user.username}. Cargando m\u00f3dulo ${user.role}...`);
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.message);
-      setLoginState("No fue posible iniciar sesion. Revisa usuario y contraseña.");
+      setLoginState("No fue posible iniciar sesi\u00f3n. Revisa el usuario y la contrase\u00f1a.");
     }
   }
 
@@ -44,9 +44,9 @@ export default function Login() {
         <div className="auth-card">
           <div className="auth-card-head">
             <p className="eyebrow">Acceso seguro</p>
-            <h2>Iniciar sesion</h2>
+            <h2>{"Iniciar sesi\u00f3n"}</h2>
             <p className="auth-copy">
-              Ingresa con tu usuario del sistema. Una vez autenticado, la plataforma cargara automaticamente el flujo segun tu rol.
+              {"Ingresa con tu usuario del sistema. Una vez autenticado, la plataforma cargar\u00e1 autom\u00e1ticamente el flujo seg\u00fan tu rol."}
             </p>
           </div>
 
@@ -60,18 +60,20 @@ export default function Login() {
                 onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
                 autoComplete="username"
                 spellCheck="false"
+                placeholder="Ingresa tu usuario"
                 required
               />
             </label>
 
             <label>
-              Password
+              {"Contrase\u00f1a"}
               <input
                 type="password"
                 name="password"
                 value={form.password}
                 onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                 autoComplete="current-password"
+                placeholder={"Ingresa tu contrase\u00f1a"}
                 required
               />
             </label>
@@ -80,14 +82,14 @@ export default function Login() {
             <div className="auth-status">{loginState}</div>
 
             <button type="submit" disabled={loading}>
-              {loading ? "Ingresando..." : "Iniciar sesion"}
+              {loading ? "Ingresando..." : "Iniciar sesi\u00f3n"}
             </button>
           </form>
 
           <div className="auth-divider"><span>portal interno</span></div>
           <div className="auth-help compact">
             <p className="login-note">
-              Usa tus credenciales institucionales del sistema. El acceso visible dependera del rol autenticado.
+              {"Usa tus credenciales institucionales del sistema. El acceso visible depender\u00e1 del rol autenticado."}
             </p>
             <div className="login-role-grid">
               <article className="login-role-card">
@@ -97,7 +99,7 @@ export default function Login() {
               </article>
               <article className="login-role-card">
                 <span className="login-role-tag">GUARDA</span>
-                <strong>Operacion de acceso</strong>
+                <strong>{"Operaci\u00f3n de acceso"}</strong>
                 <p>Registro por QR, primer ingreso y control de presencia en campus.</p>
               </article>
               <article className="login-role-card">

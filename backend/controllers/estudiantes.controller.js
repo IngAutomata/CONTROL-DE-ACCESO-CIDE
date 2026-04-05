@@ -2,6 +2,9 @@ const pool = require("../config/database");
 const estudiantesModel = require("../models/estudiantes.model");
 
 const PLACA_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
+const DOCUMENTO_REGEX = /^\d{8,10}$/;
+const CELULAR_REGEX = /^\d{1,10}$/;
+const QR_CIDE_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
 
 function normalizarTexto(value) {
   return typeof value === "string" ? value.trim() : value;
@@ -11,19 +14,32 @@ function normalizarPlaca(value) {
   return typeof value === "string" ? value.trim().toUpperCase() : value;
 }
 
+function esDocumentoValido(documento) {
+  return typeof documento === "string" && DOCUMENTO_REGEX.test(documento);
+}
+
+function esQrCideValido(qrUid) {
+  return typeof qrUid === "string" && QR_CIDE_REGEX.test(qrUid);
+}
+
 function validarPrimerIngreso(body = {}) {
   const documento = normalizarTexto(body.documento);
   const qr_uid = normalizarTexto(body.qr_uid);
   const nombre = normalizarTexto(body.nombre);
   const carrera = normalizarTexto(body.carrera);
+  const celular = normalizarTexto(body.celular);
   const placa = normalizarPlaca(body.placa);
   const color = normalizarTexto(body.color);
   const { vigencia } = body;
 
   if (!documento || typeof documento !== "string") return "documento es requerido";
+  if (!esDocumentoValido(documento)) return "documento debe tener entre 8 y 10 digitos numericos";
   if (!qr_uid || typeof qr_uid !== "string") return "qr_uid es requerido";
+  if (!esQrCideValido(qr_uid)) return "qr_uid debe tener formato QR de CIDE";
   if (!nombre || typeof nombre !== "string") return "nombre es requerido";
   if (!carrera || typeof carrera !== "string") return "carrera es requerida";
+  if (celular != null && celular !== "" && typeof celular !== "string") return "celular debe ser texto";
+  if (celular && !CELULAR_REGEX.test(celular)) return "celular debe tener solo numeros y maximo 10 caracteres";
   if (typeof vigencia !== "boolean") return "vigencia debe ser boolean";
   if (!placa || typeof placa !== "string") return "placa es requerida";
   if (!PLACA_REGEX.test(placa)) return "placa debe tener formato ABC12D";
@@ -39,6 +55,7 @@ function sanitizarPrimerIngreso(body = {}) {
     qr_uid: normalizarTexto(body.qr_uid),
     nombre: normalizarTexto(body.nombre),
     carrera: normalizarTexto(body.carrera),
+    celular: normalizarTexto(body.celular),
     placa: normalizarPlaca(body.placa),
     color: normalizarTexto(body.color),
   };

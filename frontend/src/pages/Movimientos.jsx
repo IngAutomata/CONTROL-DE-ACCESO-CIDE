@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import QrScanner from "../components/QrScanner.jsx";
 
+const CIDE_QR_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
+const DOCUMENT_REGEX = /^\d{8,10}$/;
+
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -12,7 +15,8 @@ export default function Movimientos() {
   const { role, apiRequest } = useAuth();
   const [insideCampus, setInsideCampus] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
-  const [form, setForm] = useState({ qr_uid: "" });
+  const [registerMode, setRegisterMode] = useState("qr");
+  const [form, setForm] = useState({ qr_uid: "", documento: "", placa: "" });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [lastRegistered, setLastRegistered] = useState(null);
@@ -62,10 +66,18 @@ export default function Movimientos() {
     };
   }, [refreshData]);
 
-  async function registerMovement(qrValue) {
+  async function registerMovement(payload) {
+    if (payload.qr_uid && !CIDE_QR_REGEX.test((payload.qr_uid || "").trim())) {
+      throw new Error("El QR debe tener formato CIDE y terminar en un c\u00f3digo alfanum\u00e9rico de 1 a 8 caracteres.");
+    }
+
+    if (payload.documento && !DOCUMENT_REGEX.test((payload.documento || "").trim())) {
+      throw new Error("La c\u00e9dula debe tener entre 8 y 10 d\u00edgitos num\u00e9ricos.");
+    }
+
     const data = await apiRequest("/movimientos/registrar", {
       method: "POST",
-      body: JSON.stringify({ qr_uid: qrValue }),
+      body: JSON.stringify(payload),
     });
 
     setStatus(`${data.movimiento.tipo} registrada para ${data.estudiante.nombre}`);
@@ -75,10 +87,10 @@ export default function Movimientos() {
       documento: data.estudiante.documento,
       placa: data.estudiante.placa || "-",
       fecha: data.movimiento.fecha_hora,
-      qr_uid: qrValue,
+      qr_uid: payload.qr_uid || data.estudiante.qr_uid || "-",
       actor: data.movimiento.actor_username || data.estudiante.updated_by_username || "Sin responsable",
     });
-    setForm({ qr_uid: "" });
+    setForm({ qr_uid: "", documento: "", placa: "" });
     await refreshData();
     return data;
   }
@@ -94,7 +106,13 @@ export default function Movimientos() {
     }
 
     try {
-      await registerMovement(form.qr_uid);
+      const payload = registerMode === "qr"
+        ? { qr_uid: form.qr_uid.trim() }
+        : registerMode === "documento"
+          ? { documento: form.documento.trim() }
+          : { placa: form.placa.trim().toUpperCase() };
+
+      await registerMovement(payload);
     } catch (err) {
       setError(err.message);
     }
@@ -104,12 +122,12 @@ export default function Movimientos() {
     <section className="page">
       <header className="page__header">
         <p className="eyebrow">Movimientos</p>
-        <h2>Operacion segun permisos</h2>
+        <h2>{"Operaci\u00f3n seg\u00fan permisos"}</h2>
         <p>
           {role === "ADMIN"
-            ? "Como ADMIN puedes registrar movimientos y revisar el historico completo."
+            ? "Como ADMIN puedes registrar movimientos y revisar el hist\u00f3rico completo."
             : role === "GUARDA"
-              ? "Como GUARDA puedes registrar entradas/salidas y ver quienes estan dentro del campus."
+              ? "Como GUARDA puedes registrar entradas y salidas, y ver qui\u00e9nes est\u00e1n dentro del campus."
               : "Como CONSULTA puedes revisar el estado actual del campus y el historial sin modificar datos."}
         </p>
       </header>
@@ -122,38 +140,66 @@ export default function Movimientos() {
                 <p className="eyebrow">Acceso en tiempo real</p>
                 <h3>Registrar entrada o salida</h3>
                 <p className="movement-copy">
-                  Puedes usar el QR UID manual o activar la camara del equipo. El sistema decide automaticamente si corresponde
-                  ENTRADA o SALIDA segun el ultimo movimiento registrado.
+                  {"Puedes registrar por QR, por c\u00e9dula o por placa. El sistema decide autom\u00e1ticamente si corresponde "}
+                  ENTRADA o SALIDA{" seg\u00fan el \u00faltimo movimiento registrado del estudiante encontrado."}
                 </p>
               </div>
               <div className="movement-mode-badge">Modo {role}</div>
             </div>
 
             <form className="inline-form" onSubmit={handleSubmit}>
-              <input
-                type="text"
-                placeholder="QR UID"
-                value={form.qr_uid}
-                onChange={(event) => setForm({ qr_uid: event.target.value })}
-                required
-              />
+              <select value={registerMode} onChange={(event) => setRegisterMode(event.target.value)}>
+                <option value="qr">Registrar por QR</option>
+                <option value="documento">{"Registrar por c\u00e9dula"}</option>
+                <option value="placa">Registrar por placa</option>
+              </select>
+              {registerMode === "qr" ? (
+                <input
+                  type="text"
+                  placeholder="https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2"
+                  value={form.qr_uid}
+                  onChange={(event) => setForm((current) => ({ ...current, qr_uid: event.target.value.trim() }))}
+                  required
+                />
+              ) : registerMode === "documento" ? (
+                <input
+                  type="text"
+                  placeholder={"C\u00e9dula de 8 a 10 d\u00edgitos"}
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={form.documento}
+                  onChange={(event) => setForm((current) => ({ ...current, documento: event.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                  required
+                />
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Placa ABC12D"
+                  maxLength={6}
+                  value={form.placa}
+                  onChange={(event) => setForm((current) => ({ ...current, placa: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) }))}
+                  required
+                />
+              )}
               <button type="submit">Registrar</button>
             </form>
-            <QrScanner
-              title="Escanear QR para acceso"
-              helpText="Al detectar un QR valido, el sistema registrara automaticamente ENTRADA o SALIDA segun el ultimo movimiento del estudiante."
-              buttonLabel="Abrir camara para acceso"
-              onScan={async (decodedText) => {
-                setError("");
-                setStatus("QR detectado. Registrando movimiento...");
-                await registerMovement(decodedText.trim());
-              }}
-            />
+            {registerMode === "qr" ? (
+              <QrScanner
+                title="Escanear QR para acceso"
+                helpText={"Al detectar un QR v\u00e1lido, el sistema registrar\u00e1 autom\u00e1ticamente ENTRADA o SALIDA seg\u00fan el \u00faltimo movimiento del estudiante."}
+                buttonLabel={"Abrir c\u00e1mara para acceso"}
+                onScan={async (decodedText) => {
+                  setError("");
+                  setStatus("QR detectado. Registrando movimiento...");
+                  await registerMovement({ qr_uid: decodedText.trim() });
+                }}
+              />
+            ) : null}
             {status ? <div className="form-success">{status}</div> : null}
           </article>
 
           <article className="info-card movement-last-card">
-            <p className="eyebrow">Ultima lectura</p>
+            <p className="eyebrow">{"\u00daltima lectura"}</p>
             <h3>Resultado del escaneo</h3>
             {lastRegistered ? (
               <div className="scan-result">
@@ -171,7 +217,7 @@ export default function Movimientos() {
               </div>
             ) : (
               <div className="empty-state">
-                Aun no hay una lectura reciente en esta sesion. Escanea un QR para ver aqui el ultimo acceso procesado.
+                {"A\u00fan no hay una lectura reciente en esta sesi\u00f3n. Escanea un QR o registra por c\u00e9dula/placa para ver aqu\u00ed el \u00faltimo acceso procesado."}
               </div>
             )}
           </article>
@@ -199,7 +245,7 @@ export default function Movimientos() {
                     <th>Estudiante</th>
                     <th>Placa</th>
                     <th>Responsable</th>
-                    <th>Ultimo movimiento</th>
+                    <th>{"\u00daltimo movimiento"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,12 +272,12 @@ export default function Movimientos() {
           <div className="table-head">
             <div>
               <p className="eyebrow">Actividad reciente</p>
-              <h3>Historico de movimientos</h3>
+              <h3>{"Hist\u00f3rico de movimientos"}</h3>
             </div>
             <span className="table-count">{allMovements.length} evento(s)</span>
           </div>
           {allMovements.length === 0 ? (
-            <div className="empty-state">Aun no hay movimientos registrados.</div>
+            <div className="empty-state">{"A\u00fan no hay movimientos registrados."}</div>
           ) : (
             <div className="table-wrap table-wrap--scrollable">
               <table className="data-table">
@@ -250,7 +296,7 @@ export default function Movimientos() {
                       <td>
                         <div className="movement-cell-strong">
                           <span className="movement-main">{item.nombre}</span>
-                          <span className="movement-sub">DOC {item.documento} · Movimiento #{item.id}</span>
+                          <span className="movement-sub">DOC {item.documento} - Movimiento #{item.id}</span>
                         </div>
                       </td>
                       <td>

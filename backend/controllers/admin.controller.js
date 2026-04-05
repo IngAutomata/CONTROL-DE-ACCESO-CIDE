@@ -5,6 +5,9 @@ const pool = require("../config/database");
 const { ROLES } = require("../constants/roles");
 
 const PLACA_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
+const DOCUMENTO_REGEX = /^\d{8,10}$/;
+const CELULAR_REGEX = /^\d{1,10}$/;
+const QR_CIDE_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
 
 function normalizeRole(roleValue) {
   if (typeof roleValue !== "string") return null;
@@ -31,19 +34,32 @@ function normalizePlate(value) {
   return typeof value === "string" ? value.trim().toUpperCase() : value;
 }
 
+function isValidDocumento(documento) {
+  return typeof documento === "string" && DOCUMENTO_REGEX.test(documento);
+}
+
+function isValidCideQr(qrUid) {
+  return typeof qrUid === "string" && QR_CIDE_REGEX.test(qrUid);
+}
+
 function validateStudentPayload(body = {}) {
   const documento = normalizeText(body.documento);
   const qr_uid = normalizeText(body.qr_uid);
   const nombre = normalizeText(body.nombre);
   const carrera = normalizeText(body.carrera);
+  const celular = normalizeText(body.celular);
   const placa = normalizePlate(body.placa);
   const color = normalizeText(body.color);
   const { vigencia } = body;
 
   if (!documento) return "documento es requerido";
+  if (!isValidDocumento(documento)) return "documento debe tener entre 8 y 10 digitos numericos";
   if (!qr_uid) return "qr_uid es requerido";
+  if (!isValidCideQr(qr_uid)) return "qr_uid debe tener formato QR de CIDE";
   if (!nombre) return "nombre es requerido";
   if (!carrera) return "carrera es requerida";
+  if (celular != null && celular !== "" && typeof celular !== "string") return "celular debe ser texto";
+  if (celular && !CELULAR_REGEX.test(celular)) return "celular debe tener solo numeros y maximo 10 caracteres";
   if (typeof vigencia !== "boolean") return "vigencia debe ser boolean";
   if (!placa) return "placa es requerida";
   if (!PLACA_REGEX.test(placa)) return "placa debe tener formato ABC12D";
@@ -58,6 +74,7 @@ function sanitizeStudentPayload(body = {}) {
     qr_uid: normalizeText(body.qr_uid),
     nombre: normalizeText(body.nombre),
     carrera: normalizeText(body.carrera),
+    celular: normalizeText(body.celular),
     vigencia: body.vigencia,
     placa: normalizePlate(body.placa),
     color: normalizeText(body.color),
@@ -76,6 +93,15 @@ function buildConflictMessage(error) {
   }
 
   return null;
+}
+
+function buildGuardRestrictedFieldsError() {
+  return "GUARDA solo puede actualizar placa, color, celular y vigencia";
+}
+
+function detectRestrictedStudentChanges(existing = {}, payload = {}) {
+  const restrictedFields = ["documento", "qr_uid", "nombre", "carrera"];
+  return restrictedFields.filter((field) => (existing[field] ?? null) !== (payload[field] ?? null));
 }
 
 async function listarUsuarios(_req, res, next) {
@@ -319,24 +345,37 @@ async function actualizarEstudiante(req, res, next) {
     return res.status(400).json({ error: "id de estudiante invalido" });
   }
 
-  const payload = sanitizeStudentPayload(req.body);
-  const validationError = validateStudentPayload(payload);
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
-  }
-
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-    const updated = await estudiantesModel.updateById(client, id, payload, {
-      actorUserId: req.user?.id || null,
-    });
+    const existing = await estudiantesModel.findById(id);
 
-    if (updated.rows.length === 0) {
+    if (existing.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Estudiante no encontrado" });
     }
+
+    const currentStudent = existing.rows[0];
+    const payload = sanitizeStudentPayload(req.body);
+
+    if (req.user?.role === ROLES.GUARDA) {
+      const restrictedChanges = detectRestrictedStudentChanges(currentStudent, payload);
+      if (restrictedChanges.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error: buildGuardRestrictedFieldsError() });
+      }
+    }
+
+    const validationError = validateStudentPayload(payload);
+    if (validationError) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: validationError });
+    }
+
+    const updated = await estudiantesModel.updateById(client, id, payload, {
+      actorUserId: req.user?.id || null,
+    });
 
     await client.query("COMMIT");
     return res.status(200).json({
