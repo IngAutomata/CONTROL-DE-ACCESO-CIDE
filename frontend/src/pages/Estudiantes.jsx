@@ -4,17 +4,17 @@ import QrScanner from "../components/QrScanner.jsx";
 
 const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
 const CAREERS = [
-  "INGENIERIA DE SISTEMAS",
-  "INGENIERIA INDUSTRIAL",
-  "CONTADURIA PUBLICA",
-  "ADMINISTRACION DE EMPRESAS",
-  "DERECHO",
-  "PSICOLOGIA",
-  "TRABAJO SOCIAL",
-  "LICENCIATURA EN PEDAGOGIA INFANTIL",
-  "LICENCIATURA EN LENGUA CASTELLANA E INGLES",
-  "SEGURIDAD Y SALUD EN EL TRABAJO",
-  "ESPECIALIZACION EN GERENCIA DE PROYECTOS",
+  "Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538",
+  "Tecnico Profesional Procesos de Redes y Comunicaciones - 109639",
+  "Tecnico Profesional en Instalaciones Electricas para Sistemas Renovables - 108879",
+  "Tecnologo Electrico en Generacion y Gestion Eficiente de Energias Renovables - 108524",
+  "Tecnologo en Gestion de Sistemas Mecatronicos Industriales - 108525",
+  "Tecnologia en Gestion de Seguridad y Salud en el Trabajo - 108794",
+  "Tecnologia en Gestion de Sistemas Informaticos - 110400",
+  "Ingenieria Electrica - 108667",
+  "Ingenieria Mecatronica - 108787",
+  "Ingenieria Industrial - 108795",
+  "Ingenieria de Sistemas - 110399",
 ];
 
 const initialForm = {
@@ -479,3 +479,5 @@ export default function Estudiantes() {
     </section>
   );
 }
+
+
