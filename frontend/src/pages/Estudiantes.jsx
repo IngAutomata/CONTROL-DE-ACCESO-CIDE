@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import QrScanner from "../components/QrScanner.jsx";
 
 const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
 const DOCUMENT_REGEX = /^\d{8,10}$/;
+const CELULAR_REGEX = /^\d{1,10}$/;
 const CIDE_QR_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
 const CAREERS = [
   "Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538",
@@ -35,6 +36,10 @@ function normalizePlate(value) {
 }
 
 function normalizeDocumento(value) {
+  return (value || "").replace(/\D/g, "").slice(0, 10);
+}
+
+function normalizeCelular(value) {
   return (value || "").replace(/\D/g, "").slice(0, 10);
 }
 
@@ -73,7 +78,7 @@ function mapStudentToForm(student) {
     qr_uid: normalizeQr(student.qr_uid || ""),
     nombre: student.nombre || "",
     carrera: student.carrera || CAREERS[0],
-    celular: student.celular || "",
+    celular: normalizeCelular(student.celular || ""),
     placa: normalizePlate(student.placa || ""),
     color: student.color || "",
     vigencia: Boolean(student.vigencia),
@@ -93,6 +98,11 @@ export default function Estudiantes() {
   const [originalDocumento, setOriginalDocumento] = useState("");
   const [showStudentsTable, setShowStudentsTable] = useState(false);
   const [scannedStudent, setScannedStudent] = useState(null);
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    payload: null,
+    details: null,
+  });
 
   const canManageStudents = useMemo(() => ["ADMIN", "GUARDA"].includes(role), [role]);
 
@@ -136,7 +146,7 @@ export default function Estudiantes() {
     }
 
     if (lookupMode === "documento" && !DOCUMENT_REGEX.test(normalizeDocumento(lookupValue))) {
-      setError("La cÃ©dula debe tener entre 8 y 10 dÃ­gitos numÃ©ricos.");
+      setError("La cédula debe tener entre 8 y 10 dígitos numéricos.");
       return;
     }
 
@@ -152,7 +162,7 @@ export default function Estudiantes() {
       setOriginalDocumento(data.documento || "");
       setCurrentMode("editar");
       setScannedStudent(data);
-      setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "ediciÃ³n" : "consulta"}.`);
+      setStatus(`Estudiante ${data.nombre} cargado para ${canManageStudents ? "edición" : "consulta"}.`);
     } catch (err) {
       setError(err.message);
       setScannedStudent(null);
@@ -180,12 +190,17 @@ export default function Estudiantes() {
     setStatus("");
 
     if (!DOCUMENT_REGEX.test(form.documento)) {
-      setError("La cÃ©dula debe tener entre 8 y 10 dÃ­gitos numÃ©ricos.");
+      setError("La cédula debe tener entre 8 y 10 dígitos numéricos.");
+      return;
+    }
+
+    if (form.celular && !CELULAR_REGEX.test(form.celular)) {
+      setError("El celular debe contener solo números y máximo 10 caracteres.");
       return;
     }
 
     if (!CIDE_QR_REGEX.test(form.qr_uid)) {
-      setError("El QR debe tener formato CIDE y terminar en un cÃ³digo alfanumerico de 1 a 8 caracteres.");
+      setError("El QR debe tener formato CIDE y terminar en un código alfanumérico de 1 a 8 caracteres.");
       return;
     }
 
@@ -194,17 +209,43 @@ export default function Estudiantes() {
       return;
     }
 
+    try {
+      const isEditing = currentMode === "editar" && originalDocumento;
+      if (isEditing) {
+        setConfirmState({
+          open: true,
+          payload: { ...form },
+          details: {
+            documento_actual: originalDocumento,
+            documento_nuevo: form.documento,
+            nombre: form.nombre,
+            carrera: form.carrera,
+            celular: form.celular || "-",
+            placa: form.placa,
+            color: form.color,
+            vigencia: form.vigencia ? "Activa" : "Inactiva",
+          },
+        });
+        return;
+      }
+
+      await saveStudent(form, false);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function saveStudent(payload, isEditing) {
     setLoading(true);
 
     try {
-      const isEditing = currentMode === "editar" && originalDocumento;
       const endpoint = isEditing
         ? `/estudiantes/documento/${encodeURIComponent(originalDocumento)}`
         : "/estudiantes/primer-ingreso";
       const method = isEditing ? "PUT" : "POST";
       const data = await apiRequest(endpoint, {
         method,
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const estudiante = data.estudiante || data;
@@ -212,11 +253,12 @@ export default function Estudiantes() {
 
       setStatus(`Estudiante ${actionLabel} correctamente.`);
       setCurrentMode("editar");
-      setOriginalDocumento(estudiante.documento || form.documento);
+      setOriginalDocumento(estudiante.documento || payload.documento);
       setLookupMode("documento");
-      setLookupValue(estudiante.documento || form.documento);
+      setLookupValue(estudiante.documento || payload.documento);
       setForm(mapStudentToForm(estudiante));
       setScannedStudent(estudiante);
+      setConfirmState({ open: false, payload: null, details: null });
       await fetchStudents();
     } catch (err) {
       setError(err.message);
@@ -232,9 +274,11 @@ export default function Estudiantes() {
         ? normalizePlate(value)
         : field === "documento"
           ? normalizeDocumento(value)
-          : field === "qr_uid"
-            ? normalizeQr(value)
-            : value,
+          : field === "celular"
+            ? normalizeCelular(value)
+            : field === "qr_uid"
+              ? normalizeQr(value)
+              : value,
     }));
   }
 
@@ -245,8 +289,17 @@ export default function Estudiantes() {
     setCurrentMode("crear");
     setOriginalDocumento("");
     setScannedStudent(null);
+    setConfirmState({ open: false, payload: null, details: null });
     setStatus("");
     setError("");
+  }
+
+  function formatConfirmationDetails(details) {
+    if (!details) return "";
+
+    return Object.entries(details)
+      .map(([key, value]) => `${key}: ${value ?? "-"}`)
+      .join("\n");
   }
 
   return (
@@ -264,12 +317,22 @@ export default function Estudiantes() {
       <div className="cards-grid cards-grid--single">
         <article className="info-card info-card--workspace">
           <h3>{currentMode === "editar" ? "Registro cargado" : "Registrar o buscar estudiante"}</h3>
+          <div className="workspace-mode-row">
+            <span className={`movement-pill ${currentMode === "editar" ? "exit" : "entry"}`}>
+              {currentMode === "editar" ? "Modo edición" : "Modo registro"}
+            </span>
+            <span className="workspace-mode-copy">
+              {currentMode === "editar"
+                ? "Estás trabajando sobre un estudiante existente."
+                : "Completa el formulario para registrar un estudiante nuevo."}
+            </span>
+          </div>
 
           {canManageStudents ? (
             <div className="student-scan-block">
               <QrScanner
                 title="Leer QR para primer ingreso"
-                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su informaciÃ³n inmediatamente."
+                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su información inmediatamente."
                 buttonLabel="Escanear QR del estudiante"
                 onScan={async (decodedText) => {
                   const qrValue = decodedText.trim();
@@ -291,7 +354,7 @@ export default function Estudiantes() {
                     setScannedStudent(matchedStudent);
                     setLookupMode("documento");
                     setLookupValue(matchedStudent.documento || "");
-                    setStatus(`QR reconocido. ${matchedStudent.nombre} cargado para ediciÃ³n.`);
+                    setStatus(`QR reconocido. ${matchedStudent.nombre} cargado para edición.`);
                     return;
                   }
 
@@ -310,7 +373,7 @@ export default function Estudiantes() {
               />
 
               <div className="student-scan-result">
-                <h4>InformaciÃ³n del estudiante escaneado</h4>
+                <h4>Información del estudiante escaneado</h4>
                 {scannedStudent ? (
                   <dl className="scan-info-grid">
                     <div>
@@ -343,7 +406,7 @@ export default function Estudiantes() {
                     </div>
                   </dl>
                 ) : (
-                  <div className="empty-state">Escanea un QR para ver aquÃ­ la informaciÃ³n del estudiante.</div>
+                  <div className="empty-state">Escanea un QR para ver aquí la información del estudiante.</div>
                 )}
               </div>
             </div>
@@ -428,7 +491,9 @@ export default function Estudiantes() {
                   type="text"
                   value={form.celular}
                   onChange={(event) => handleChange("celular", event.target.value)}
-                  placeholder="NÃºmero de contacto"
+                  placeholder="Número de contacto"
+                  inputMode="numeric"
+                  maxLength={10}
                   disabled={!canManageStudents}
                 />
               </label>
@@ -502,7 +567,7 @@ export default function Estudiantes() {
           </div>
 
           {students.length === 0 ? (
-            <div className="empty-state">AÃºn no hay estudiantes registrados.</div>
+            <div className="empty-state">Aún no hay estudiantes registrados.</div>
           ) : (
             <div className="table-wrap table-wrap--scrollable table-wrap--panel">
               <table className="data-table">
@@ -536,6 +601,45 @@ export default function Estudiantes() {
             </div>
           )}
         </section>
+      ) : null}
+
+      {confirmState.open ? (
+        <div className="modal" aria-hidden="false">
+          <div
+            className="modal-backdrop"
+            onClick={() => setConfirmState({ open: false, payload: null, details: null })}
+          />
+          <div
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="student-confirm-title"
+          >
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="student-confirm-title">Confirmar cambios del estudiante</h3>
+            <p className="modal-copy">
+              Se va a editar este estudiante. ¿Estás seguro de que deseas modificarlo? Verifica la información antes de guardar.
+            </p>
+            <pre className="modal-details">{formatConfirmationDetails(confirmState.details)}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => saveStudent(confirmState.payload, true)}
+              >
+                {loading ? "Guardando..." : "Confirmar"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setConfirmState({ open: false, payload: null, details: null })}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

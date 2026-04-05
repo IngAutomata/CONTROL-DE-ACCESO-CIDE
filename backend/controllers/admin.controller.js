@@ -6,6 +6,7 @@ const { ROLES } = require("../constants/roles");
 
 const PLACA_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
 const DOCUMENTO_REGEX = /^\d{8,10}$/;
+const CELULAR_REGEX = /^\d{1,10}$/;
 const QR_CIDE_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
 
 function normalizeRole(roleValue) {
@@ -58,6 +59,7 @@ function validateStudentPayload(body = {}) {
   if (!nombre) return "nombre es requerido";
   if (!carrera) return "carrera es requerida";
   if (celular != null && celular !== "" && typeof celular !== "string") return "celular debe ser texto";
+  if (celular && !CELULAR_REGEX.test(celular)) return "celular debe tener solo numeros y maximo 10 caracteres";
   if (typeof vigencia !== "boolean") return "vigencia debe ser boolean";
   if (!placa) return "placa es requerida";
   if (!PLACA_REGEX.test(placa)) return "placa debe tener formato ABC12D";

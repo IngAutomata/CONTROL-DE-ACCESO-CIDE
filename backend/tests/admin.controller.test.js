@@ -418,6 +418,44 @@ async function runTest(name, fn) {
     assert.deepEqual(res.body, { error: "qr_uid debe tener formato QR de CIDE" });
   });
 
+  await runTest("actualizarEstudiante rechaza celular invalido", async () => {
+    const { actualizarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        updateById: async () => {
+          throw new Error("No debe llamarse en validacion");
+        },
+      },
+      poolMock: {
+        connect: async () => ({
+          query: async () => ({ rows: [] }),
+          release() {},
+        }),
+      },
+    });
+
+    const req = {
+      params: { id: "3" },
+      body: {
+        documento: "12345678",
+        qr_uid: VALID_QR,
+        nombre: "Luis",
+        carrera: "Ing",
+        celular: "300-123-4567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: "celular debe tener solo numeros y maximo 10 caracteres" });
+  });
+
   await runTest("actualizarEstudiantePorDocumento usa documento como llave de busqueda", async () => {
     const queries = [];
     const client = {

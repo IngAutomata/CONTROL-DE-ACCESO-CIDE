@@ -753,6 +753,82 @@ input:-webkit-autofill:active {
   font-size: 1rem;
 }
 
+.workspace-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+
+.workspace-mode-copy {
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(23, 63, 55, 0.72) 0%, rgba(29, 77, 71, 0.62) 100%);
+  backdrop-filter: blur(4px);
+}
+
+.modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(560px, calc(100% - 32px));
+  margin: 10vh auto 0;
+  padding: 24px;
+  border: 1px solid rgba(32, 79, 69, 0.18);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, #fbfcfd 0%, #f1f6f7 62%, #e8f0ee 100%);
+  box-shadow: 0 24px 60px rgba(22, 47, 40, 0.22);
+}
+
+.modal-panel .eyebrow {
+  color: var(--accent);
+}
+
+.modal-panel h3 {
+  margin: 0 0 10px;
+  color: var(--accent-strong);
+}
+
+.modal-copy {
+  margin: 0 0 18px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.modal-details {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid rgba(45, 140, 255, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(220, 235, 251, 0.72) 0%, rgba(246, 248, 251, 0.92) 100%);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.modal-panel .button-strip {
+  justify-content: flex-end;
+}
+
+.modal-panel .button-strip .ghost-button {
+  background: var(--panel);
+}
+
 .scan-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
