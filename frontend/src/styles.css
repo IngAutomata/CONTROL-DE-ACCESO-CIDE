@@ -736,6 +736,17 @@ input:-webkit-autofill:active {
   filter: none;
 }
 
+.danger-button {
+  background: var(--danger-strong);
+  color: #fff;
+  border: 1px solid rgba(250, 82, 82, 0.24);
+  box-shadow: none;
+}
+
+.danger-button:hover {
+  filter: brightness(0.96);
+}
+
 .student-scan-block {
   display: grid;
   gap: 16px;
@@ -764,6 +775,16 @@ input:-webkit-autofill:active {
 .workspace-mode-copy {
   color: var(--ink-soft);
   line-height: 1.5;
+}
+
+.form-note {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid rgba(45, 140, 255, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(220, 235, 251, 0.72) 0%, rgba(246, 248, 251, 0.92) 100%);
+  color: var(--ink);
+  line-height: 1.6;
 }
 
 .modal {
@@ -963,6 +984,24 @@ input:-webkit-autofill:active {
   margin: 0;
   font-size: 1.15rem;
   color: var(--accent-strong);
+}
+
+.admin-table-header {
+  align-items: end;
+}
+
+.admin-table-tools {
+  display: grid;
+  gap: 10px;
+  width: min(460px, 100%);
+}
+
+.admin-table-tools input {
+  background: #fff;
+}
+
+.admin-students-table {
+  min-width: 1360px;
 }
 
 .data-table {
@@ -1321,6 +1360,10 @@ input:-webkit-autofill:active {
   .table-head,
   .table-panel__header {
     flex-direction: column;
+  }
+
+  .admin-table-tools {
+    width: 100%;
   }
 }
 

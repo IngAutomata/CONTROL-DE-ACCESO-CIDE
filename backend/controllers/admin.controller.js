@@ -95,6 +95,15 @@ function buildConflictMessage(error) {
   return null;
 }
 
+function buildGuardRestrictedFieldsError() {
+  return "GUARDA solo puede actualizar placa, color, celular y vigencia";
+}
+
+function detectRestrictedStudentChanges(existing = {}, payload = {}) {
+  const restrictedFields = ["documento", "qr_uid", "nombre", "carrera"];
+  return restrictedFields.filter((field) => (existing[field] ?? null) !== (payload[field] ?? null));
+}
+
 async function listarUsuarios(_req, res, next) {
   try {
     const result = await usuariosModel.listUsuarios();
@@ -336,24 +345,37 @@ async function actualizarEstudiante(req, res, next) {
     return res.status(400).json({ error: "id de estudiante invalido" });
   }
 
-  const payload = sanitizeStudentPayload(req.body);
-  const validationError = validateStudentPayload(payload);
-  if (validationError) {
-    return res.status(400).json({ error: validationError });
-  }
-
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
-    const updated = await estudiantesModel.updateById(client, id, payload, {
-      actorUserId: req.user?.id || null,
-    });
+    const existing = await estudiantesModel.findById(id);
 
-    if (updated.rows.length === 0) {
+    if (existing.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Estudiante no encontrado" });
     }
+
+    const currentStudent = existing.rows[0];
+    const payload = sanitizeStudentPayload(req.body);
+
+    if (req.user?.role === ROLES.GUARDA) {
+      const restrictedChanges = detectRestrictedStudentChanges(currentStudent, payload);
+      if (restrictedChanges.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error: buildGuardRestrictedFieldsError() });
+      }
+    }
+
+    const validationError = validateStudentPayload(payload);
+    if (validationError) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: validationError });
+    }
+
+    const updated = await estudiantesModel.updateById(client, id, payload, {
+      actorUserId: req.user?.id || null,
+    });
 
     await client.query("COMMIT");
     return res.status(200).json({

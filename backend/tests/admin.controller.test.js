@@ -310,6 +310,9 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
         updateById: async () => {
           throw duplicateError;
         },
@@ -347,6 +350,9 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
         updateById: async () => {
           throw new Error("No debe llamarse en validacion");
         },
@@ -385,6 +391,9 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
         updateById: async () => {
           throw new Error("No debe llamarse en validacion");
         },
@@ -423,6 +432,9 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 3, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
         updateById: async () => {
           throw new Error("No debe llamarse en validacion");
         },
@@ -472,7 +484,10 @@ async function runTest(name, fn) {
       bcryptMock: {},
       estudiantesModelMock: {
         findByDocumento: async () => ({
-          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true }],
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        findById: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
         }),
         updateById: async (_client, id, _payload, audit) => {
           auditSeen = audit;
@@ -508,6 +523,58 @@ async function runTest(name, fn) {
     assert.equal(res.body.estudiante.id, 11);
     assert.deepEqual(auditSeen, { actorUserId: 55 });
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
+  });
+
+  await runTest("actualizarEstudiantePorDocumento rechaza cambios de identidad para GUARDA", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const { actualizarEstudiantePorDocumento } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findByDocumento: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        findById: async () => ({
+          rows: [{ estudiante_id: 11, documento: "12345678", qr_uid: VALID_QR, nombre: "Luis", carrera: "Ing", celular: "3001234567", vigencia: true, placa: "ABC12D", color: "Negro" }],
+        }),
+        updateById: async () => {
+          throw new Error("No debe actualizar cuando GUARDA cambia identidad");
+        },
+      },
+      poolMock: {
+        connect: async () => client,
+      },
+    });
+
+    const req = {
+      user: { id: 55, username: "guarda", role: "GUARDA" },
+      params: { documento: "12345678" },
+      body: {
+        documento: "87654321",
+        qr_uid: VALID_QR,
+        nombre: "Otro Nombre",
+        carrera: "Otra Carrera",
+        celular: "3001234567",
+        vigencia: true,
+        placa: "ABC12D",
+        color: "Negro",
+      },
+    };
+    const res = createRes();
+
+    await actualizarEstudiantePorDocumento(req, res, () => {});
+
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(res.body, { error: "GUARDA solo puede actualizar placa, color, celular y vigencia" });
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
   });
 
   await runTest("eliminarEstudiante elimina cuando existe", async () => {

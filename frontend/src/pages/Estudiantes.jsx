@@ -105,6 +105,10 @@ export default function Estudiantes() {
   });
 
   const canManageStudents = useMemo(() => ["ADMIN", "GUARDA"].includes(role), [role]);
+  const isGuardEditing = useMemo(
+    () => role === "GUARDA" && currentMode === "editar",
+    [currentMode, role]
+  );
 
   async function fetchStudents() {
     const data = await apiRequest("/estudiantes");
@@ -327,6 +331,11 @@ export default function Estudiantes() {
                 : "Completa el formulario para registrar un estudiante nuevo."}
             </span>
           </div>
+          {isGuardEditing ? (
+            <div className="form-note">
+              Como GUARDA solo puedes actualizar placa, color, celular y vigencia. Los datos de identidad quedan protegidos.
+            </div>
+          ) : null}
 
           {canManageStudents ? (
             <div className="student-scan-block">
@@ -443,7 +452,7 @@ export default function Estudiantes() {
                   maxLength={10}
                   placeholder="Ejemplo: 12345678"
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -455,7 +464,7 @@ export default function Estudiantes() {
                   onChange={(event) => handleChange("qr_uid", event.target.value)}
                   placeholder="https://soe.cide.edu.co/verificar-estudiante/NjEyMzE2"
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -466,7 +475,7 @@ export default function Estudiantes() {
                   value={form.nombre}
                   onChange={(event) => handleChange("nombre", event.target.value)}
                   required
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 />
               </label>
 
@@ -475,7 +484,7 @@ export default function Estudiantes() {
                 <select
                   value={form.carrera}
                   onChange={(event) => handleChange("carrera", event.target.value)}
-                  disabled={!canManageStudents}
+                  disabled={!canManageStudents || isGuardEditing}
                 >
                   {CAREERS.map((career) => (
                     <option key={career} value={career}>

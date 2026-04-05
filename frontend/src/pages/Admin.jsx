@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const initialForm = {
@@ -10,14 +10,22 @@ const initialForm = {
 export default function Admin() {
   const { apiRequest } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
+  const [estudiantes, setEstudiantes] = useState([]);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [studentDeleteTarget, setStudentDeleteTarget] = useState(null);
+  const [studentFilter, setStudentFilter] = useState("");
 
   async function loadUsers() {
     const data = await apiRequest("/admin/usuarios");
     setUsuarios(data.usuarios || []);
+  }
+
+  async function loadStudents() {
+    const data = await apiRequest("/estudiantes");
+    setEstudiantes(data.estudiantes || []);
   }
 
   useEffect(() => {
@@ -27,10 +35,14 @@ export default function Admin() {
       setError("");
 
       try {
-        const data = await apiRequest("/admin/usuarios");
+        const [usersData, studentsData] = await Promise.all([
+          apiRequest("/admin/usuarios"),
+          apiRequest("/estudiantes"),
+        ]);
 
         if (!cancelled) {
-          setUsuarios(data.usuarios || []);
+          setUsuarios(usersData.usuarios || []);
+          setEstudiantes(studentsData.estudiantes || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -68,14 +80,53 @@ export default function Admin() {
     }
   }
 
+  async function handleConfirmDeleteStudent() {
+    if (!studentDeleteTarget) return;
+
+    setLoading(true);
+    setError("");
+    setStatus("");
+
+    try {
+      const data = await apiRequest(`/admin/estudiantes/documento/${encodeURIComponent(studentDeleteTarget.documento)}`, {
+        method: "DELETE",
+      });
+
+      setStatus(`Estudiante ${data.estudiante.nombre} eliminado correctamente.`);
+      setStudentDeleteTarget(null);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredStudents = useMemo(() => {
+    const term = studentFilter.trim().toLowerCase();
+    if (!term) return estudiantes;
+
+    return estudiantes.filter((student) => {
+      const fields = [
+        student.documento,
+        student.nombre,
+        student.placa,
+        student.qr_uid,
+        student.created_by_username,
+        student.updated_by_username,
+      ];
+
+      return fields.some((value) => String(value || "").toLowerCase().includes(term));
+    });
+  }, [estudiantes, studentFilter]);
+
   return (
     <section className="page">
       <header className="page__header">
-        <p className="eyebrow">Administracion</p>
+        <p className="eyebrow">Administración</p>
         <h2>Herramientas exclusivas de ADMIN</h2>
         <p>
-          Desde aqui puedes crear usuarios y revisar el estado general del acceso administrativo.
-          La auditoria detallada se integrara cuando exista un endpoint estable en esta rama.
+          Desde aquí puedes crear usuarios, revisar estudiantes y gestionar la operación administrativa del sistema.
         </p>
       </header>
 
@@ -98,7 +149,7 @@ export default function Admin() {
             </label>
 
             <label>
-              Contrasena
+              Contraseña
               <input
                 type="password"
                 value={form.password}
@@ -156,15 +207,117 @@ export default function Admin() {
             </div>
           )}
         </article>
-
-        <article className="info-card">
-          <h3>Estado del modulo admin</h3>
-          <div className="empty-state">
-            Esta base React ya puede crear y listar usuarios. La parte de auditoria no se conecto
-            aqui para evitar depender de endpoints que todavia no existen en la rama estable.
-          </div>
-        </article>
       </div>
+
+      <section className="table-panel">
+        <div className="table-panel__header admin-table-header">
+          <div>
+            <p className="eyebrow">Gestión de estudiantes</p>
+            <h3>Estudiantes del sistema</h3>
+          </div>
+          <div className="admin-table-tools">
+            <input
+              type="text"
+              value={studentFilter}
+              onChange={(event) => setStudentFilter(event.target.value)}
+              placeholder="Filtrar por documento, nombre, placa, QR o responsable"
+            />
+            <span className="table-count">{filteredStudents.length} visible(s)</span>
+          </div>
+        </div>
+
+        {estudiantes.length === 0 ? (
+          <div className="empty-state">No hay estudiantes registrados.</div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="empty-state">No se encontraron estudiantes con ese filtro.</div>
+        ) : (
+          <div className="table-wrap table-wrap--scrollable table-wrap--panel">
+            <table className="data-table admin-students-table">
+              <thead>
+                <tr>
+                  <th>Documento</th>
+                  <th>Nombre</th>
+                  <th>QR</th>
+                  <th>Placa</th>
+                  <th>Celular</th>
+                  <th>Vigencia</th>
+                  <th>Creado por</th>
+                  <th>Actualizado por</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((student) => (
+                  <tr key={student.estudiante_id}>
+                    <td>{student.documento}</td>
+                    <td>{student.nombre}</td>
+                    <td>{student.qr_uid || "-"}</td>
+                    <td>{student.placa || "-"}</td>
+                    <td>{student.celular || "-"}</td>
+                    <td>{student.vigencia ? "Vigente" : "No vigente"}</td>
+                    <td>{student.created_by_username || "Sin responsable"}</td>
+                    <td>{student.updated_by_username || "Sin responsable"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="danger-button"
+                        onClick={() => setStudentDeleteTarget(student)}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <article className="info-card">
+        <h3>Estado del módulo admin</h3>
+        <div className="empty-state">
+          Aquí ADMIN ya puede crear usuarios, revisar estudiantes y eliminar estudiantes con confirmación.
+        </div>
+      </article>
+
+      {studentDeleteTarget ? (
+        <div className="modal" aria-hidden="false">
+          <div className="modal-backdrop" onClick={() => setStudentDeleteTarget(null)} />
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="delete-student-title">
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="delete-student-title">Eliminar estudiante</h3>
+            <p className="modal-copy">
+              Esta acción eliminará el estudiante del sistema. Verifica los datos antes de continuar.
+            </p>
+            <pre className="modal-details">{[
+              `documento: ${studentDeleteTarget.documento || "-"}`,
+              `nombre: ${studentDeleteTarget.nombre || "-"}`,
+              `placa: ${studentDeleteTarget.placa || "-"}`,
+              `vigencia: ${studentDeleteTarget.vigencia ? "Activa" : "Inactiva"}`,
+              `actualizado_por: ${studentDeleteTarget.updated_by_username || "Sin responsable"}`,
+            ].join("\n")}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                className="danger-button"
+                disabled={loading}
+                onClick={handleConfirmDeleteStudent}
+              >
+                {loading ? "Eliminando..." : "Confirmar eliminación"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setStudentDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
