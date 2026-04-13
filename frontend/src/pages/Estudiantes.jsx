@@ -200,7 +200,7 @@ export default function Estudiantes() {
     }
 
     if (form.celular && !CELULAR_REGEX.test(form.celular)) {
-      setError("El celular debe contener exactamente 10 numeros.");
+      setError("El celular debe contener exactamente 10 números.");
       return;
     }
 
@@ -353,7 +353,7 @@ export default function Estudiantes() {
             <div className="student-scan-block">
               <QrScanner
                 title="Leer QR para primer ingreso"
-                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su informacion inmediatamente."
+                helpText="Escanea el QR del estudiante. Si ya existe en la base, cargaremos su información inmediatamente."
                 buttonLabel="Escanear QR del estudiante"
                 onScan={async (decodedText) => {
                   const qrValue = decodedText.trim();
@@ -400,7 +400,7 @@ export default function Estudiantes() {
               />
 
               <div className="student-scan-result">
-                <h4>Informacion del estudiante escaneado</h4>
+                <h4>Información del estudiante escaneado</h4>
                 {scannedStudent ? (
                   <dl className="scan-info-grid">
                     <div>
@@ -433,7 +433,7 @@ export default function Estudiantes() {
                     </div>
                   </dl>
                 ) : (
-                  <div className="empty-state">Escanea un QR para ver aqui la informacion del estudiante.</div>
+                  <div className="empty-state">Escanea un QR para ver aquí la información del estudiante.</div>
                 )}
               </div>
             </div>
@@ -518,7 +518,7 @@ export default function Estudiantes() {
                   type="text"
                   value={form.celular}
                   onChange={(event) => handleChange("celular", event.target.value)}
-                  placeholder="Numero de contacto"
+                  placeholder="Número de contacto"
                   inputMode="numeric"
                   minLength={10}
                   maxLength={10}
@@ -646,7 +646,7 @@ export default function Estudiantes() {
             <p className="eyebrow">Confirmación requerida</p>
             <h3 id="student-confirm-title">Confirmar cambios del estudiante</h3>
             <p className="modal-copy">
-              Se va a editar este estudiante. Estas seguro de que deseas modificarlo? Verifica la informacion antes de guardar.
+              Se va a editar este estudiante. ¿Estás seguro de que deseas modificarlo? Verifica la información antes de guardar.
             </p>
             <pre className="modal-details">{formatConfirmationDetails(confirmState.details)}</pre>
             <div className="button-strip">
@@ -672,9 +672,3 @@ export default function Estudiantes() {
     </section>
   );
 }
-
-
-
-
-
-

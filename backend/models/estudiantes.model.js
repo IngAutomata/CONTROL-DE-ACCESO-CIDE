@@ -36,6 +36,10 @@ function buildStudentSelect(capabilities = {}) {
       e.carrera,
       e.celular,
       e.vigencia,
+      e.is_deleted,
+      e.deleted_at,
+      e.created_at,
+      e.updated_at,
       ${createdByFields}
       ${updatedByFields}
       m.placa,
@@ -52,7 +56,7 @@ async function findByIdWithDb(db, id) {
   return db.query(
     `
     ${buildStudentSelect(capabilities)}
-    WHERE e.id = $1
+    WHERE e.id = $1 AND e.is_deleted = FALSE
     `,
     [id]
   );
@@ -105,7 +109,7 @@ async function findByDocumento(documento) {
   return pool.query(
     `
     ${buildStudentSelect(capabilities)}
-    WHERE e.documento = $1
+    WHERE e.documento = $1 AND e.is_deleted = FALSE
     `,
     [documento]
   );
@@ -117,7 +121,7 @@ async function findByPlaca(placa) {
     `
     ${buildStudentSelect(capabilities)}
     JOIN motocicletas moto_lookup ON moto_lookup.estudiante_id = e.id
-    WHERE UPPER(moto_lookup.placa) = UPPER($1)
+    WHERE UPPER(moto_lookup.placa) = UPPER($1) AND e.is_deleted = FALSE
     LIMIT 1
     `,
     [placa]
@@ -152,7 +156,7 @@ async function updateById(client, id, payload, audit = {}) {
   const estudianteResult = await client.query(
     `
     UPDATE estudiantes
-    SET ${assignments.join(", ")}
+    SET ${assignments.join(", ")}, updated_at = NOW()
     WHERE id = $${values.length}
     RETURNING id
     `,
@@ -176,18 +180,49 @@ async function updateById(client, id, payload, audit = {}) {
   return findByIdWithDb(client, id);
 }
 
-async function deleteById(client, id) {
+async function softDeleteById(client, id) {
   return client.query(
     `
-    DELETE FROM estudiantes
+    UPDATE estudiantes
+    SET is_deleted = TRUE,
+        deleted_at = NOW(),
+        updated_at = NOW(),
+        vigencia = FALSE
     WHERE id = $1
-    RETURNING id, documento, qr_uid, nombre, carrera, celular, vigencia
+      AND is_deleted = FALSE
+    RETURNING id, documento, qr_uid, nombre, carrera, celular, vigencia, is_deleted, deleted_at, updated_at
+    `,
+    [id]
+  );
+}
+
+async function restoreById(client, id) {
+  return client.query(
+    `
+    UPDATE estudiantes
+    SET is_deleted = FALSE,
+        deleted_at = NULL,
+        updated_at = NOW()
+    WHERE id = $1
+      AND is_deleted = TRUE
+    RETURNING id, documento, qr_uid, nombre, carrera, celular, vigencia, is_deleted, deleted_at, updated_at
     `,
     [id]
   );
 }
 
 async function listAll() {
+  const capabilities = await getAuditCapabilities(pool);
+  return pool.query(
+    `
+    ${buildStudentSelect(capabilities)}
+    WHERE e.is_deleted = FALSE
+    ORDER BY e.id DESC
+    `
+  );
+}
+
+async function listAllIncludingDeleted() {
   const capabilities = await getAuditCapabilities(pool);
   return pool.query(
     `
@@ -199,7 +234,7 @@ async function listAll() {
 
 async function findByQrUidForUpdate(client, qrUid) {
   return client.query(
-    "SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia FROM estudiantes WHERE qr_uid = $1 FOR UPDATE",
+    "SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia FROM estudiantes WHERE qr_uid = $1 AND is_deleted = FALSE FOR UPDATE",
     [qrUid]
   );
 }
@@ -215,7 +250,7 @@ async function findByQrCandidatesForUpdate(client, candidates) {
     `
     SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia
     FROM estudiantes
-    WHERE qr_uid = ANY($1::text[])
+    WHERE qr_uid = ANY($1::text[]) AND is_deleted = FALSE
     ORDER BY CASE WHEN qr_uid = $2 THEN 0 ELSE 1 END, id DESC
     FOR UPDATE
     `,
@@ -228,7 +263,7 @@ async function findByDocumentoForUpdate(client, documento) {
     `
     SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia
     FROM estudiantes
-    WHERE documento = $1
+    WHERE documento = $1 AND is_deleted = FALSE
     FOR UPDATE
     `,
     [documento]
@@ -241,7 +276,7 @@ async function findByPlacaForUpdate(client, placa) {
     SELECT e.id, e.documento, e.qr_uid, e.nombre, e.carrera, e.celular, e.vigencia
     FROM estudiantes e
     JOIN motocicletas m ON m.estudiante_id = e.id
-    WHERE UPPER(m.placa) = UPPER($1)
+    WHERE UPPER(m.placa) = UPPER($1) AND e.is_deleted = FALSE
     LIMIT 1
     FOR UPDATE
     `,
@@ -254,7 +289,7 @@ async function findByCelularForUpdate(client, celular) {
     `
     SELECT id, documento, qr_uid, nombre, carrera, celular, vigencia
     FROM estudiantes
-    WHERE celular = $1
+    WHERE celular = $1 AND is_deleted = FALSE
     LIMIT 1
     FOR UPDATE
     `,
@@ -271,8 +306,10 @@ module.exports = {
   findByCelularForUpdate,
   findById,
   listAll,
+  listAllIncludingDeleted,
   findByQrUidForUpdate,
   findByQrCandidatesForUpdate,
   updateById,
-  deleteById,
+  softDeleteById,
+  restoreById,
 };

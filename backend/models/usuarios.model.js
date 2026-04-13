@@ -3,7 +3,7 @@ const pool = require("../config/database");
 async function listUsuarios() {
   return pool.query(
     `
-    SELECT id, username, role, created_at
+    SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
     FROM usuarios
     ORDER BY id ASC
     `
@@ -13,7 +13,19 @@ async function listUsuarios() {
 async function findByUsername(username) {
   return pool.query(
     `
-    SELECT id, username, role, created_at
+    SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
+    FROM usuarios
+    WHERE username = $1 AND is_active = TRUE
+    LIMIT 1
+    `,
+    [username]
+  );
+}
+
+async function findByUsernameAnyStatus(username) {
+  return pool.query(
+    `
+    SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
     FROM usuarios
     WHERE username = $1
     LIMIT 1
@@ -25,7 +37,7 @@ async function findByUsername(username) {
 async function findById(id) {
   return pool.query(
     `
-    SELECT id, username, role, created_at
+    SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
     FROM usuarios
     WHERE id = $1
     LIMIT 1
@@ -41,7 +53,7 @@ async function createUsuario(payload) {
     `
     INSERT INTO usuarios (username, password_hash, role)
     VALUES ($1, $2, $3)
-    RETURNING id, username, role, created_at
+    RETURNING id, username, role, is_active, deactivated_at, created_at, updated_at
     `,
     [username, passwordHash, role]
   );
@@ -72,20 +84,39 @@ async function updateUsuario(id, payload) {
   return pool.query(
     `
     UPDATE usuarios
-    SET ${fields.join(", ")}
+    SET ${fields.join(", ")}, updated_at = NOW()
     WHERE id = $${index}
-    RETURNING id, username, role, created_at
+    RETURNING id, username, role, is_active, deactivated_at, created_at, updated_at
     `,
     values
   );
 }
 
-async function deleteUsuario(id) {
+async function deactivateUsuario(id) {
   return pool.query(
     `
-    DELETE FROM usuarios
+    UPDATE usuarios
+    SET is_active = FALSE,
+        deactivated_at = NOW(),
+        updated_at = NOW()
     WHERE id = $1
-    RETURNING id, username, role, created_at
+      AND is_active = TRUE
+    RETURNING id, username, role, is_active, deactivated_at, created_at, updated_at
+    `,
+    [id]
+  );
+}
+
+async function reactivateUsuario(id) {
+  return pool.query(
+    `
+    UPDATE usuarios
+    SET is_active = TRUE,
+        deactivated_at = NULL,
+        updated_at = NOW()
+    WHERE id = $1
+      AND is_active = FALSE
+    RETURNING id, username, role, is_active, deactivated_at, created_at, updated_at
     `,
     [id]
   );
@@ -97,5 +128,7 @@ module.exports = {
   findById,
   createUsuario,
   updateUsuario,
-  deleteUsuario,
+  deactivateUsuario,
+  reactivateUsuario,
+  findByUsernameAnyStatus,
 };

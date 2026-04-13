@@ -98,7 +98,7 @@ async function runTest(name, fn) {
   await runTest("crearUsuario retorna 409 si username ya existe", async () => {
     const { crearUsuario } = loadController({
       usuariosModelMock: {
-        findByUsername: async () => ({ rows: [{ id: 1, username: "admin" }] }),
+        findByUsernameAnyStatus: async () => ({ rows: [{ id: 1, username: "admin" }] }),
       },
       bcryptMock: {
         hash: async () => "hash",
@@ -119,7 +119,7 @@ async function runTest(name, fn) {
     let payload = null;
     const { crearUsuario } = loadController({
       usuariosModelMock: {
-        findByUsername: async () => ({ rows: [] }),
+        findByUsernameAnyStatus: async () => ({ rows: [] }),
         createUsuario: async (input) => {
           payload = input;
           return { rows: [{ id: 8, username: input.username, role: input.role }] };
@@ -230,7 +230,7 @@ async function runTest(name, fn) {
   await runTest("eliminarUsuario retorna 404 si no existe", async () => {
     const { eliminarUsuario } = loadController({
       usuariosModelMock: {
-        deleteUsuario: async () => ({ rows: [] }),
+        deactivateUsuario: async () => ({ rows: [] }),
       },
       bcryptMock: {},
       estudiantesModelMock: {},
@@ -251,9 +251,9 @@ async function runTest(name, fn) {
     const { eliminarUsuarioPorUsername } = loadController({
       usuariosModelMock: {
         findByUsername: async () => ({ rows: [{ id: 9, username: "consulta", role: "CONSULTA" }] }),
-        deleteUsuario: async (id) => {
+        deactivateUsuario: async (id) => {
           deletedId = id;
-          return { rows: [{ id, username: "consulta", role: "CONSULTA" }] };
+          return { rows: [{ id, username: "consulta", role: "CONSULTA", is_active: false }] };
         },
       },
       bcryptMock: {},
@@ -269,6 +269,29 @@ async function runTest(name, fn) {
     assert.equal(deletedId, 9);
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.usuario.username, "consulta");
+    assert.equal(res.body.message, "Usuario desactivado");
+  });
+
+  await runTest("reactivarUsuario vuelve activo un usuario desactivado", async () => {
+    const { reactivarUsuario } = loadController({
+      usuariosModelMock: {
+        reactivateUsuario: async (id) => ({
+          rows: [{ id, username: "consulta", role: "CONSULTA", is_active: true }],
+        }),
+      },
+      bcryptMock: {},
+      estudiantesModelMock: {},
+      poolMock: {},
+    });
+
+    const req = { params: { id: "9" } };
+    const res = createRes();
+
+    await reactivarUsuario(req, res, () => {});
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.message, "Usuario reactivado");
+    assert.equal(res.body.usuario.is_active, true);
   });
 
   await runTest("obtenerEstudiantePorPlaca retorna estudiante encontrado", async () => {
@@ -632,7 +655,7 @@ async function runTest(name, fn) {
     assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
   });
 
-  await runTest("eliminarEstudiante elimina cuando existe", async () => {
+  await runTest("eliminarEstudiante desactiva cuando existe", async () => {
     const queries = [];
     const client = {
       query: async (sql) => {
@@ -646,8 +669,8 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
-        deleteById: async () => ({
-          rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
+        softDeleteById: async () => ({
+          rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: false, is_deleted: true }],
         }),
       },
       poolMock: {
@@ -661,12 +684,12 @@ async function runTest(name, fn) {
     await eliminarEstudiante(req, res, () => {});
 
     assert.equal(res.statusCode, 200);
-    assert.equal(res.body.message, "Estudiante eliminado");
+    assert.equal(res.body.message, "Estudiante desactivado");
     assert.ok(queries.some((sql) => /BEGIN/.test(sql)), "Debe abrir transaccion");
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
 
-  await runTest("eliminarEstudiantePorDocumento elimina cuando existe", async () => {
+  await runTest("eliminarEstudiantePorDocumento desactiva cuando existe", async () => {
     const queries = [];
     const client = {
       query: async (sql) => {
@@ -683,8 +706,8 @@ async function runTest(name, fn) {
         findByDocumento: async () => ({
           rows: [{ estudiante_id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
         }),
-        deleteById: async () => ({
-          rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
+        softDeleteById: async () => ({
+          rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: false, is_deleted: true }],
         }),
       },
       poolMock: {
@@ -699,6 +722,39 @@ async function runTest(name, fn) {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.estudiante.documento, "123456");
+    assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
+  });
+
+  await runTest("reactivarEstudiante vuelve activo un estudiante desactivado", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const { reactivarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        restoreById: async () => ({
+          rows: [{ id: 5, documento: "123456", nombre: "Luis", is_deleted: false }],
+        }),
+      },
+      poolMock: {
+        connect: async () => client,
+      },
+    });
+
+    const req = { params: { id: "5" } };
+    const res = createRes();
+
+    await reactivarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.message, "Estudiante reactivado");
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
 

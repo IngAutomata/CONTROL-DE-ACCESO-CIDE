@@ -4,7 +4,10 @@ CREATE TABLE IF NOT EXISTS usuarios (
   username VARCHAR(50) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL DEFAULT 'staff',
-  created_at TIMESTAMP DEFAULT NOW()
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  deactivated_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Estudiantes
@@ -16,9 +19,12 @@ CREATE TABLE IF NOT EXISTS estudiantes (
   carrera VARCHAR(120) NOT NULL,
   celular VARCHAR(20),
   vigencia BOOLEAN NOT NULL,
+  is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  deleted_at TIMESTAMP NULL,
   created_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
   updated_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Motocicletas (1 a 1 con estudiante por MVP)

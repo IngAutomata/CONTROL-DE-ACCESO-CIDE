@@ -36,7 +36,7 @@ async function login(req, res) {
 
   try {
     const result = await pool.query(
-      "SELECT id, username, password_hash, role FROM usuarios WHERE username = $1 LIMIT 1",
+      "SELECT id, username, password_hash, role FROM usuarios WHERE username = $1 AND is_active = TRUE LIMIT 1",
       [username]
     );
 

@@ -69,7 +69,7 @@ async function apiRequest(url, options = {}, token) {
   }
 
   if (!response.ok) {
-    const error = new Error(data.error || data.message || "Error de autenticacion");
+    const error = new Error(data.error || data.message || "Error de autenticación");
     error.status = response.status;
     error.data = data;
     throw error;
@@ -192,7 +192,7 @@ export function AuthProvider({ children }) {
           await refreshUser({ soft: true });
         } catch (error) {
           if (error.status !== 401 && error.status !== 403) {
-            console.warn("No se pudo revalidar la sesion al recargar", error);
+            console.warn("No se pudo revalidar la sesión al recargar", error);
           }
         }
 
@@ -205,7 +205,7 @@ export function AuthProvider({ children }) {
         if (error.status === 401 || error.status === 403) {
           logout();
         } else {
-          console.warn("No se pudo revalidar la sesion al iniciar", error);
+          console.warn("No se pudo revalidar la sesión al iniciar", error);
         }
       } finally {
         if (!cancelled) {

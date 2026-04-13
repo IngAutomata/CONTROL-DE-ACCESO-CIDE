@@ -177,7 +177,7 @@ async function crearUsuario(req, res, next) {
   }
 
   try {
-    const existing = await usuariosModel.findByUsername(username.trim());
+    const existing = await usuariosModel.findByUsernameAnyStatus(username.trim());
 
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: "El usuario ya existe" });
@@ -261,7 +261,7 @@ async function actualizarUsuario(req, res, next) {
     }
 
     if (payload.username) {
-      const sameUsername = await usuariosModel.findByUsername(payload.username);
+      const sameUsername = await usuariosModel.findByUsernameAnyStatus(payload.username);
       if (sameUsername.rows.length > 0 && sameUsername.rows[0].id !== id) {
         return res.status(409).json({ error: "El usuario ya existe" });
       }
@@ -307,14 +307,14 @@ async function eliminarUsuario(req, res, next) {
   }
 
   try {
-    const deleted = await usuariosModel.deleteUsuario(id);
+    const deleted = await usuariosModel.deactivateUsuario(id);
 
     if (deleted.rows.length === 0) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
     return res.status(200).json({
-      message: "Usuario eliminado",
+      message: "Usuario desactivado",
       usuario: deleted.rows[0],
     });
   } catch (error) {
@@ -333,7 +333,7 @@ async function eliminarUsuarioPorUsername(req, res, next) {
     const existing = await usuariosModel.findByUsername(username);
 
     if (existing.rows.length === 0) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
+      return res.status(404).json({ error: "Usuario no encontrado o ya desactivado" });
     }
 
     req.params.id = String(existing.rows[0].id);
@@ -358,6 +358,62 @@ async function obtenerEstudiantePorDocumento(req, res, next) {
     }
 
     return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function listarEstudiantesAdmin(_req, res, next) {
+  try {
+    const result = await estudiantesModel.listAllIncludingDeleted();
+    return res.status(200).json({
+      count: result.rows.length,
+      estudiantes: result.rows,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function reactivarUsuario(req, res, next) {
+  const id = parseId(req.params.id);
+
+  if (!id) {
+    return res.status(400).json({ error: "id de usuario invalido" });
+  }
+
+  try {
+    const restored = await usuariosModel.reactivateUsuario(id);
+
+    if (restored.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado o ya activo" });
+    }
+
+    return res.status(200).json({
+      message: "Usuario reactivado",
+      usuario: restored.rows[0],
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function reactivarUsuarioPorUsername(req, res, next) {
+  const username = normalizeText(req.params.username);
+
+  if (!username) {
+    return res.status(400).json({ error: "username es requerido" });
+  }
+
+  try {
+    const existing = await usuariosModel.findByUsernameAnyStatus(username);
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    req.params.id = String(existing.rows[0].id);
+    return reactivarUsuario(req, res, next);
   } catch (error) {
     return next(error);
   }
@@ -481,16 +537,16 @@ async function eliminarEstudiante(req, res, next) {
 
   try {
     await client.query("BEGIN");
-    const deleted = await estudiantesModel.deleteById(client, id);
+    const deleted = await estudiantesModel.softDeleteById(client, id);
 
     if (deleted.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Estudiante no encontrado" });
+      return res.status(404).json({ error: "Estudiante no encontrado o ya desactivado" });
     }
 
     await client.query("COMMIT");
     return res.status(200).json({
-      message: "Estudiante eliminado",
+      message: "Estudiante desactivado",
       estudiante: deleted.rows[0],
     });
   } catch (error) {
@@ -527,18 +583,80 @@ async function eliminarEstudiantePorDocumento(req, res, next) {
   }
 }
 
+async function reactivarEstudiante(req, res, next) {
+  const id = parseId(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "id de estudiante invalido" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const restored = await estudiantesModel.restoreById(client, id);
+
+    if (restored.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Estudiante no encontrado o ya activo" });
+    }
+
+    await client.query("COMMIT");
+    return res.status(200).json({
+      message: "Estudiante reactivado",
+      estudiante: restored.rows[0],
+    });
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      // no-op
+    }
+
+    return next(error);
+  } finally {
+    client.release();
+  }
+}
+
+async function reactivarEstudiantePorDocumento(req, res, next) {
+  const documento = normalizeText(req.params.documento);
+
+  if (!documento) {
+    return res.status(400).json({ error: "documento es requerido" });
+  }
+
+  try {
+    const existing = await estudiantesModel.listAllIncludingDeleted();
+    const match = (existing.rows || []).find((row) => row.documento === documento);
+
+    if (!match) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    req.params.id = String(match.estudiante_id);
+    return reactivarEstudiante(req, res, next);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarUsuarios,
+  listarEstudiantesAdmin,
   crearUsuario,
   obtenerUsuarioPorUsername,
   actualizarUsuario,
   actualizarUsuarioPorUsername,
   eliminarUsuario,
   eliminarUsuarioPorUsername,
+  reactivarUsuario,
+  reactivarUsuarioPorUsername,
   obtenerEstudiantePorDocumento,
   obtenerEstudiantePorPlaca,
   actualizarEstudiante,
   actualizarEstudiantePorDocumento,
   eliminarEstudiante,
   eliminarEstudiantePorDocumento,
+  reactivarEstudiante,
+  reactivarEstudiantePorDocumento,
 };

@@ -15,7 +15,10 @@ export default function Admin() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [userDeleteTarget, setUserDeleteTarget] = useState(null);
+  const [userRestoreTarget, setUserRestoreTarget] = useState(null);
   const [studentDeleteTarget, setStudentDeleteTarget] = useState(null);
+  const [studentRestoreTarget, setStudentRestoreTarget] = useState(null);
   const [studentFilter, setStudentFilter] = useState("");
 
   async function loadUsers() {
@@ -24,7 +27,7 @@ export default function Admin() {
   }
 
   async function loadStudents() {
-    const data = await apiRequest("/estudiantes");
+    const data = await apiRequest("/admin/estudiantes");
     setEstudiantes(data.estudiantes || []);
   }
 
@@ -37,7 +40,7 @@ export default function Admin() {
       try {
         const [usersData, studentsData] = await Promise.all([
           apiRequest("/admin/usuarios"),
-          apiRequest("/estudiantes"),
+          apiRequest("/admin/estudiantes"),
         ]);
 
         if (!cancelled) {
@@ -92,8 +95,74 @@ export default function Admin() {
         method: "DELETE",
       });
 
-      setStatus(`Estudiante ${data.estudiante.nombre} eliminado correctamente.`);
+      setStatus(`Estudiante ${data.estudiante.nombre} desactivado correctamente.`);
       setStudentDeleteTarget(null);
+      await loadStudents();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirmDeleteUser() {
+    if (!userDeleteTarget) return;
+
+    setLoading(true);
+    setError("");
+    setStatus("");
+
+    try {
+      const data = await apiRequest(`/admin/usuarios/${userDeleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      setStatus(`Usuario ${data.usuario.username} desactivado correctamente.`);
+      setUserDeleteTarget(null);
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirmRestoreUser() {
+    if (!userRestoreTarget) return;
+
+    setLoading(true);
+    setError("");
+    setStatus("");
+
+    try {
+      const data = await apiRequest(`/admin/usuarios/${userRestoreTarget.id}/reactivar`, {
+        method: "PATCH",
+      });
+
+      setStatus(`Usuario ${data.usuario.username} reactivado correctamente.`);
+      setUserRestoreTarget(null);
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirmRestoreStudent() {
+    if (!studentRestoreTarget) return;
+
+    setLoading(true);
+    setError("");
+    setStatus("");
+
+    try {
+      const data = await apiRequest(`/admin/estudiantes/documento/${encodeURIComponent(studentRestoreTarget.documento)}/reactivar`, {
+        method: "PATCH",
+      });
+
+      setStatus(`Estudiante ${data.estudiante.nombre} reactivado correctamente.`);
+      setStudentRestoreTarget(null);
       await loadStudents();
     } catch (err) {
       setError(err.message);
@@ -133,16 +202,21 @@ export default function Admin() {
       {error ? <div className="form-error">{error}</div> : null}
       {status ? <div className="form-success">{status}</div> : null}
 
-      <div className="cards-grid">
+      <div className="cards-grid cards-grid--single">
         <article className="info-card">
           <h3>Crear nuevo usuario</h3>
-          <form className="stack-form" onSubmit={handleCreateUser}>
+          <form className="stack-form" onSubmit={handleCreateUser} autoComplete="off">
+            <input type="text" name="admin-fake-user" autoComplete="username" tabIndex="-1" hidden readOnly />
+            <input type="password" name="admin-fake-pass" autoComplete="current-password" tabIndex="-1" hidden readOnly />
             <label>
               Username
               <input
                 type="text"
+                name="admin_create_username"
                 value={form.username}
                 onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+                autoComplete="off"
+                spellCheck="false"
                 placeholder="nuevo.usuario"
                 required
               />
@@ -152,8 +226,10 @@ export default function Admin() {
               Contraseña
               <input
                 type="password"
+                name="admin_create_password"
                 value={form.password}
                 onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                autoComplete="new-password"
                 placeholder="Segura123!"
                 required
                 minLength={8}
@@ -178,36 +254,67 @@ export default function Admin() {
           </form>
         </article>
 
-        <article className="info-card">
-          <h3>Usuarios del sistema</h3>
-          {usuarios.length === 0 ? (
-            <div className="empty-state">No hay usuarios creados.</div>
-          ) : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Rol</th>
-                    <th>Creado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usuarios.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>{user.username}</td>
-                      <td>{user.role}</td>
-                      <td>{user.created_at ? new Date(user.created_at).toLocaleString("es-CO") : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </article>
       </div>
+
+      <section className="table-panel">
+        <div className="table-panel__header">
+          <div>
+            <p className="eyebrow">Gestión de usuarios</p>
+            <h3>Usuarios del sistema</h3>
+          </div>
+          <span className="table-count">{usuarios.length} visible(s)</span>
+        </div>
+        {usuarios.length === 0 ? (
+          <div className="empty-state">No hay usuarios creados.</div>
+        ) : (
+          <div className="table-wrap table-wrap--panel">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Usuario</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Creado</th>
+                  <th>Actualizado</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usuarios.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.id}</td>
+                    <td>{user.username}</td>
+                    <td>{user.role}</td>
+                    <td>{user.is_active ? "Activo" : "Desactivado"}</td>
+                    <td>{user.created_at ? new Date(user.created_at).toLocaleString("es-CO") : "-"}</td>
+                    <td>{user.updated_at ? new Date(user.updated_at).toLocaleString("es-CO") : "-"}</td>
+                    <td>
+                      {user.is_active ? (
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={() => setUserDeleteTarget(user)}
+                        >
+                          Desactivar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => setUserRestoreTarget(user)}
+                        >
+                          Reactivar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="table-panel">
         <div className="table-panel__header admin-table-header">
@@ -241,8 +348,11 @@ export default function Admin() {
                   <th>Placa</th>
                   <th>Celular</th>
                   <th>Vigencia</th>
+                  <th>Creado</th>
+                  <th>Actualizado</th>
                   <th>Creado por</th>
                   <th>Actualizado por</th>
+                  <th>Estado</th>
                   <th>Acción</th>
                 </tr>
               </thead>
@@ -255,16 +365,29 @@ export default function Admin() {
                     <td>{student.placa || "-"}</td>
                     <td>{student.celular || "-"}</td>
                     <td>{student.vigencia ? "Vigente" : "No vigente"}</td>
+                    <td>{student.created_at ? new Date(student.created_at).toLocaleString("es-CO") : "-"}</td>
+                    <td>{student.updated_at ? new Date(student.updated_at).toLocaleString("es-CO") : "-"}</td>
                     <td>{student.created_by_username || "Sin responsable"}</td>
                     <td>{student.updated_by_username || "Sin responsable"}</td>
+                    <td>{student.is_deleted ? "Desactivado" : "Activo"}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="danger-button"
-                        onClick={() => setStudentDeleteTarget(student)}
-                      >
-                        Eliminar
-                      </button>
+                      {student.is_deleted ? (
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => setStudentRestoreTarget(student)}
+                        >
+                          Reactivar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={() => setStudentDeleteTarget(student)}
+                        >
+                          Desactivar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -277,18 +400,91 @@ export default function Admin() {
       <article className="info-card">
         <h3>Estado del módulo admin</h3>
         <div className="empty-state">
-          Aquí ADMIN ya puede crear usuarios, revisar estudiantes y eliminar estudiantes con confirmación.
+          Aquí ADMIN ya puede crear usuarios, revisar estudiantes y desactivar usuarios o estudiantes sin perder historial.
         </div>
       </article>
+
+      {userDeleteTarget ? (
+        <div className="modal" aria-hidden="false">
+          <div className="modal-backdrop" onClick={() => setUserDeleteTarget(null)} />
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="delete-user-title">
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="delete-user-title">Desactivar usuario</h3>
+            <p className="modal-copy">
+              Esta acción bloqueará el acceso del usuario, pero conservará los movimientos y la auditoría histórica.
+            </p>
+            <pre className="modal-details">{[
+              `id: ${userDeleteTarget.id || "-"}`,
+              `usuario: ${userDeleteTarget.username || "-"}`,
+              `rol: ${userDeleteTarget.role || "-"}`,
+              `creado: ${userDeleteTarget.created_at ? new Date(userDeleteTarget.created_at).toLocaleString("es-CO") : "-"}`,
+            ].join("\n")}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                className="danger-button"
+                disabled={loading}
+                onClick={handleConfirmDeleteUser}
+              >
+                {loading ? "Desactivando..." : "Confirmar desactivación"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setUserDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {userRestoreTarget ? (
+        <div className="modal" aria-hidden="false">
+          <div className="modal-backdrop" onClick={() => setUserRestoreTarget(null)} />
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="restore-user-title">
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="restore-user-title">Reactivar usuario</h3>
+            <p className="modal-copy">
+              Esta acción devolverá el acceso al usuario y mantendrá intacta la trazabilidad histórica del sistema.
+            </p>
+            <pre className="modal-details">{[
+              `id: ${userRestoreTarget.id || "-"}`,
+              `usuario: ${userRestoreTarget.username || "-"}`,
+              `rol: ${userRestoreTarget.role || "-"}`,
+              `desactivado: ${userRestoreTarget.deactivated_at ? new Date(userRestoreTarget.deactivated_at).toLocaleString("es-CO") : "-"}`,
+            ].join("\n")}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleConfirmRestoreUser}
+              >
+                {loading ? "Reactivando..." : "Confirmar reactivación"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setUserRestoreTarget(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {studentDeleteTarget ? (
         <div className="modal" aria-hidden="false">
           <div className="modal-backdrop" onClick={() => setStudentDeleteTarget(null)} />
           <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="delete-student-title">
             <p className="eyebrow">Confirmación requerida</p>
-            <h3 id="delete-student-title">Eliminar estudiante</h3>
+            <h3 id="delete-student-title">Desactivar estudiante</h3>
             <p className="modal-copy">
-              Esta acción eliminará el estudiante del sistema. Verifica los datos antes de continuar.
+              Esta acción desactivará el estudiante, pero conservará sus movimientos y el historial del sistema.
             </p>
             <pre className="modal-details">{[
               `documento: ${studentDeleteTarget.documento || "-"}`,
@@ -304,13 +500,49 @@ export default function Admin() {
                 disabled={loading}
                 onClick={handleConfirmDeleteStudent}
               >
-                {loading ? "Eliminando..." : "Confirmar eliminación"}
+                {loading ? "Desactivando..." : "Confirmar desactivación"}
               </button>
               <button
                 type="button"
                 className="ghost-button"
                 disabled={loading}
                 onClick={() => setStudentDeleteTarget(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {studentRestoreTarget ? (
+        <div className="modal" aria-hidden="false">
+          <div className="modal-backdrop" onClick={() => setStudentRestoreTarget(null)} />
+          <div className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="restore-student-title">
+            <p className="eyebrow">Confirmación requerida</p>
+            <h3 id="restore-student-title">Reactivar estudiante</h3>
+            <p className="modal-copy">
+              Esta acción habilitará nuevamente al estudiante para operación, sin perder movimientos ni auditoría.
+            </p>
+            <pre className="modal-details">{[
+              `documento: ${studentRestoreTarget.documento || "-"}`,
+              `nombre: ${studentRestoreTarget.nombre || "-"}`,
+              `placa: ${studentRestoreTarget.placa || "-"}`,
+              `desactivado: ${studentRestoreTarget.deleted_at ? new Date(studentRestoreTarget.deleted_at).toLocaleString("es-CO") : "-"}`,
+            ].join("\n")}</pre>
+            <div className="button-strip">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleConfirmRestoreStudent}
+              >
+                {loading ? "Reactivando..." : "Confirmar reactivación"}
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={loading}
+                onClick={() => setStudentRestoreTarget(null)}
               >
                 Cancelar
               </button>

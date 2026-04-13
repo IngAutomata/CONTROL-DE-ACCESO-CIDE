@@ -201,18 +201,20 @@
 
       <article id="usuarios-panel" class="card role-admin-only">
         <h2>Usuarios del sistema</h2>
-        <form id="user-form" class="form-stack">
+        <form id="user-form" class="form-stack" autocomplete="off">
+          <input type="text" name="admin-fake-user" autocomplete="username" tabindex="-1" hidden readonly>
+          <input type="password" name="admin-fake-pass" autocomplete="current-password" tabindex="-1" hidden readonly>
           <label>
             Buscar usuario
-            <input name="lookup_username" type="text" placeholder="username existente">
+            <input name="lookup_username" type="text" placeholder="username existente" autocomplete="off" spellcheck="false">
           </label>
           <label>
             Username
-            <input name="username" type="text" placeholder="nuevo.usuario" required>
+            <input name="username" type="text" placeholder="nuevo.usuario" autocomplete="off" spellcheck="false" required>
           </label>
           <label>
             Password
-            <input name="password" type="password" placeholder="Segura123!">
+            <input name="password" type="password" placeholder="Segura123!" autocomplete="new-password">
           </label>
           <label>
             Rol

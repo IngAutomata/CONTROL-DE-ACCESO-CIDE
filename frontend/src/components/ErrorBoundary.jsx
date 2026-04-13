@@ -20,9 +20,9 @@ export default class ErrorBoundary extends React.Component {
         <main className="auth-shell">
           <section className="auth-card auth-card--loading error-boundary-card">
             <p className="eyebrow">Error de interfaz</p>
-            <h2>No pudimos cargar la aplicacion</h2>
+            <h2>No pudimos cargar la aplicación</h2>
             <p className="auth-copy">
-              Ocurrio un error al renderizar la pantalla. Recarga la pagina y, si
+              Ocurrió un error al renderizar la pantalla. Recarga la página y, si
               persiste, comparte este mensaje con el equipo.
             </p>
             <div className="form-error error-boundary-message">

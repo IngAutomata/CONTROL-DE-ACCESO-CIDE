@@ -3,10 +3,20 @@ const { clearAuditCapabilitiesCache } = require("../models/audit-capabilities.mo
 
 async function ensureAuditColumns() {
   await pool.query(`
+    ALTER TABLE usuarios
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP NULL,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
+  `);
+
+  await pool.query(`
     ALTER TABLE estudiantes
       ADD COLUMN IF NOT EXISTS celular VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL,
       ADD COLUMN IF NOT EXISTS created_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
-      ADD COLUMN IF NOT EXISTS updated_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL
+      ADD COLUMN IF NOT EXISTS updated_by_user_id INT REFERENCES usuarios(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
   `);
 
   await pool.query(`
