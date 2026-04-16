@@ -55,6 +55,8 @@ function validateStudentPayload(body = {}) {
   const celular = normalizeText(body.celular);
   const placa = normalizePlate(body.placa);
   const color = normalizeText(body.color);
+  const placa_secundaria = normalizePlate(body.placa_secundaria);
+  const color_secundaria = normalizeText(body.color_secundaria);
   const { vigencia } = body;
 
   if (!documento) return "documento es requerido";
@@ -69,12 +71,15 @@ function validateStudentPayload(body = {}) {
   if (!placa) return "placa es requerida";
   if (!PLACA_REGEX.test(placa)) return "placa debe tener formato ABC12D";
   if (!color) return "color es requerido";
+  if ((placa_secundaria && !color_secundaria) || (!placa_secundaria && color_secundaria)) return "La moto secundaria requiere placa y color";
+  if (placa_secundaria && !PLACA_REGEX.test(placa_secundaria)) return "placa_secundaria debe tener formato ABC12D";
+  if (placa_secundaria && placa_secundaria === placa) return "La moto secundaria no puede repetir la placa principal";
 
   return null;
 }
 
 function sanitizeStudentPayload(body = {}) {
-  return {
+  const payload = {
     documento: normalizeText(body.documento),
     qr_uid: normalizeText(body.qr_uid),
     nombre: normalizeText(body.nombre),
@@ -84,6 +89,16 @@ function sanitizeStudentPayload(body = {}) {
     placa: normalizePlate(body.placa),
     color: normalizeText(body.color),
   };
+
+  const placaSecundaria = normalizePlate(body.placa_secundaria);
+  const colorSecundaria = normalizeText(body.color_secundaria);
+
+  if (placaSecundaria || colorSecundaria) {
+    payload.placa_secundaria = placaSecundaria;
+    payload.color_secundaria = colorSecundaria;
+  }
+
+  return payload;
 }
 
 function buildConflictMessage(error) {
@@ -130,6 +145,7 @@ function buildDuplicateFieldMessage(field) {
   if (field === "documento") return "documento ya esta registrado en otro estudiante";
   if (field === "qr_uid") return "qr_uid ya esta registrado en otro estudiante";
   if (field === "placa") return "placa ya esta registrada en otro estudiante";
+  if (field === "placa_secundaria") return "placa ya esta registrada en otro estudiante";
   if (field === "celular") return "celular ya esta registrado en otro estudiante";
   return "Ya existe un registro con esos datos unicos";
 }
@@ -143,6 +159,7 @@ async function validarDuplicadosActualizacion(client, payload, currentStudentId)
     { field: "documento", result: await safeFind("findByDocumentoForUpdate", client, payload.documento) },
     { field: "qr_uid", result: await safeFind("findByQrCandidatesForUpdate", client, [payload.qr_uid]) },
     { field: "placa", result: await safeFind("findByPlacaForUpdate", client, payload.placa) },
+    { field: "placa_secundaria", result: payload.placa_secundaria ? await safeFind("findByPlacaForUpdate", client, payload.placa_secundaria) : { rows: [] } },
     { field: "celular", result: payload.celular ? await safeFind("findByCelularForUpdate", client, payload.celular) : { rows: [] } },
   ];
 

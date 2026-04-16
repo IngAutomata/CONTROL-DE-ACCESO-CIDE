@@ -598,6 +598,49 @@ input:-webkit-autofill:active {
   color: var(--ink-soft);
 }
 
+.movement-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.movement-choice-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.movement-choice-card input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
+.movement-choice-card.active {
+  border-color: #9bc8bc;
+  background: linear-gradient(180deg, #f1fbf7 0%, #ffffff 100%);
+  box-shadow: 0 0 0 3px rgba(57, 195, 187, 0.12);
+}
+
+.movement-choice-title {
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.movement-modal-form {
+  margin-bottom: 18px;
+}
+
+.movement-modal-checkbox {
+  grid-column: 1 / -1;
+}
+
 .dashboard-callout {
   display: grid;
   gap: 8px;
