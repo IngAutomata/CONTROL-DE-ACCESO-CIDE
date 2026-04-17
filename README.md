@@ -1,49 +1,104 @@
-# Sistema de Control de Acceso con QR
+﻿# SIUC - Sistema de Ingreso Universidad CIDE
 
-Backend academico para registrar entradas y salidas con QR.
+Portal institucional para control de acceso del campus con roles, estudiantes, visitantes, movimientos, admisiones y trazabilidad operativa.
 
-## Tecnologias
+## Estado del MVP
+El proyecto ya funciona como un MVP operativo y está centrado en el frontend React como interfaz principal.
+
+Hoy el sistema incluye:
+- inicio de sesión por roles (`ADMIN`, `GUARDA`, `CONSULTA`)
+- gestión de estudiantes
+- registro de entrada y salida por:
+  - QR institucional
+  - cédula
+  - placa
+- soporte de dos motos por estudiante:
+  - principal
+  - secundaria
+- ingreso con novedad para motos no registradas
+- control de quién está dentro del campus
+- histórico de movimientos
+- administración de usuarios y estudiantes
+- soft delete y reactivación
+- solicitudes públicas de inscripción
+- admisiones con aprobación y rechazo
+- correos SMTP
+- visitantes con perfil y movimientos propios
+
+## Tecnologías
+### Backend
 - Node.js
 - Express
 - PostgreSQL (`pg`)
 - bcrypt
 - jsonwebtoken
+- nodemailer
+
+### Frontend
+- React
+- Vite
+- React Router
+- html5-qrcode
+- Vitest
+- Testing Library
 
 ## Estructura
 ```text
 backend/
-|- config/database.js
+|- config/
+|- constants/
 |- controllers/
-|- models/
+|- database/
 |- middleware/
 |- middlewares/
-|- routes/
-|- database/schema.sql
+|- models/
 |- public/
+|- routes/
+|- scripts/
+|- tests/
+|- utils/
 `- server.js
 
 frontend/
-|- index.html
+|- src/
+|  |- components/
+|  |- constants/
+|  |- context/
+|  |- pages/
+|  |- routes/
+|  `- test/
 |- package.json
-|- vite.config.js
-`- src/
+`- vite.config.js
 ```
 
-## Configuracion
-1. `cd backend`
-2. `npm install`
-3. Crear `.env` desde `.env.example`.
+## Configuración
+### 1. Backend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
+npm install
+```
 
-Variables requeridas:
+Crear `.env` desde `.env.example`.
+
+Variables principales:
 - `DB_USER`
 - `DB_HOST`
 - `DB_NAME`
 - `DB_PASSWORD`
 - `DB_PORT`
 - `JWT_SECRET`
-- `PORT` (opcional)
+- `PORT`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `SMTP_CC`
+- `SOLICITUDES_EXPIRE_AUTORUN`
+- `SOLICITUDES_EXPIRE_INTERVAL_MS`
 
-Ejemplo rapido de `.env`:
+Ejemplo:
 ```env
 DB_USER=postgres
 DB_HOST=localhost
@@ -52,50 +107,81 @@ DB_PASSWORD=tu_password_real
 DB_PORT=5432
 JWT_SECRET=dev-secret
 PORT=3000
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASS=tu_app_password
+SMTP_FROM=SIUC <tu_correo@gmail.com>
+SMTP_CC=cristian.salazar712@cide.edu.co,kevin.vargas812@cide.edu.co
+
+SOLICITUDES_EXPIRE_AUTORUN=true
+SOLICITUDES_EXPIRE_INTERVAL_MS=300000
+```
+
+### 2. Frontend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\frontend
+npm install
 ```
 
 ## Base de datos
+Crear la base:
 ```sql
 CREATE DATABASE control_acceso_cide;
 ```
 
-Ejecutar schema:
-```bash
-psql -U postgres -d control_acceso_cide -f database/schema.sql
+Aplicar esquema base:
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
+psql -U postgres -d control_acceso_cide -f database\schema.sql
 ```
 
-Seed de usuarios base:
-```bash
-node database/seed.js
+Luego asegurar columnas, índices y tablas nuevas:
+```powershell
+node database\ensure-audit-columns.js
 ```
 
-Usuarios creados/actualizados por el seed:
-- `admin / Admin123!` -> `ADMIN`
-- `guarda / Guarda123!` -> `GUARDA`
-- `consulta / Consulta123!` -> `CONSULTA`
-
-## Ejecutar
-```bash
-npm start
+## Usuarios base
+Si necesitas sembrar usuarios base:
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
+node database\seed.js
 ```
 
-Interfaz web:
-- `http://localhost:3000/`
+Usuarios esperados:
+- `admin / Admin123!`
+- `guarda / Guarda123!`
+- `consulta / Consulta123!`
 
-Frontend React base (`SIU`):
-1. `cd frontend`
-2. `npm install`
-3. `npm run dev`
+## Ejecutar el sistema
+### Backend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
+node server.js
+```
 
-Vista React:
-- `http://localhost:5173/`
+Backend/API:
+- [http://localhost:3000](http://localhost:3000)
 
 Health:
 - `GET /health`
 
-## Autenticacion y autorizacion
-1. Login: `POST /auth/login`
-Body JSON:
+### Frontend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\frontend
+npm run dev
+```
+
+Frontend React:
+- [http://localhost:5173](http://localhost:5173)
+
+## Autenticación y roles
+### Login
+- `POST /auth/login`
+
+Ejemplo:
 ```json
 {
   "username": "admin",
@@ -103,360 +189,196 @@ Body JSON:
 }
 ```
 
-Respuesta exitosa:
-```json
-{
-  "token": "<jwt>",
-  "user": {
-    "id": 1,
-    "username": "admin",
-    "role": "ADMIN"
-  }
-}
-```
+### Usuario autenticado
+- `GET /auth/me`
+- requiere `Authorization: Bearer <token>`
 
-2. Perfil autenticado: `GET /auth/me`
-Header requerido:
-- `Authorization: Bearer <token>`
-
-Respuesta exitosa:
-```json
-{
-  "id": 1,
-  "username": "admin",
-  "role": "ADMIN"
-}
-```
-
-Roles soportados:
+### Roles
 - `ADMIN`
 - `GUARDA`
 - `CONSULTA`
 
-## Endpoints
-Todas las rutas protegidas requieren `Authorization: Bearer <token>`.
-
+## Módulos principales
 ### Estudiantes
-- `POST /estudiantes/primer-ingreso` (`ADMIN` o `GUARDA`)
-- `GET /estudiantes` (`ADMIN`, `GUARDA`, `CONSULTA`)
-- `GET /estudiantes/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
-- `GET /estudiantes/documento/:documento` (`ADMIN`, `GUARDA`, `CONSULTA`)
-- `GET /estudiantes/placa/:placa` (`ADMIN`, `GUARDA`, `CONSULTA`)
+Permite:
+- primer ingreso
+- búsqueda por documento o placa
+- edición controlada por rol
+- dos motos registradas
+- celular
+- validación de QR institucional CIDE
+
+Rutas principales:
+- `POST /estudiantes/primer-ingreso`
+- `GET /estudiantes`
+- `GET /estudiantes/:id`
+- `GET /estudiantes/documento/:documento`
+- `GET /estudiantes/placa/:placa`
+- `PUT /estudiantes/documento/:documento`
 
 ### Movimientos
-- `POST /movimientos/registrar` (`ADMIN` o `GUARDA`)
-- `GET /movimientos` (`ADMIN`, `GUARDA`, `CONSULTA`)
-- `GET /movimientos/estudiante/:id` (`ADMIN`, `GUARDA`, `CONSULTA`)
-- `GET /movimientos/dentro-campus` (`ADMIN`, `GUARDA`, `CONSULTA`)
+Permite:
+- entrada/salida por QR
+- entrada/salida por cédula
+- entrada/salida por placa
+- control de moto principal / secundaria
+- novedad de moto no registrada
+- quién está dentro del campus
+- histórico
 
-### Admin
-- `GET /admin/reportes` (`ADMIN`)
-- `GET /admin/usuarios` (`ADMIN`)
-- `GET /admin/usuarios/username/:username` (`ADMIN`)
-- `POST /admin/usuarios` (`ADMIN`)
-- `PUT /admin/usuarios/:id` (`ADMIN`)
-- `DELETE /admin/usuarios/:id` (`ADMIN`)
-- `PUT /admin/usuarios/username/:username` (`ADMIN`)
-- `DELETE /admin/usuarios/username/:username` (`ADMIN`)
-- `GET /admin/estudiantes/documento/:documento` (`ADMIN`)
-- `GET /admin/estudiantes/placa/:placa` (`ADMIN`)
-- `PUT /admin/estudiantes/:id` (`ADMIN`)
-- `DELETE /admin/estudiantes/:id` (`ADMIN`)
-- `PUT /admin/estudiantes/documento/:documento` (`ADMIN`)
-- `DELETE /admin/estudiantes/documento/:documento` (`ADMIN`)
+Rutas principales:
+- `POST /movimientos/registrar`
+- `GET /movimientos`
+- `GET /movimientos/estudiante/:id`
+- `GET /movimientos/dentro-campus`
 
-## Estado actual
-- Flujo protegido por JWT en rutas sensibles.
-- Roles validados desde el token del usuario autenticado.
-- Controladores con manejo de errores y transacciones para operaciones criticas.
-- El seed corrige usuarios base existentes para evitar roles heredados inconsistentes.
-- Hay una interfaz web basica en la raiz (`/`) para login, creacion de usuarios, registro de estudiantes y verificacion de datos.
-- La vista de `ADMIN` puede buscar usuarios por `username` y estudiantes por `documento` o `placa`, autocompletar campos y luego editar o eliminar sin depender de IDs visibles.
-- Antes de editar o eliminar usuarios o estudiantes, la interfaz muestra un popup de confirmacion para evitar cambios accidentales.
-- Se agrego una base de frontend React en `frontend/` bajo la identidad `SIU` (`Sistema de Ingreso Universidad CIDE`).
-- El frontend React ya compila, respeta la politica de sesion del proyecto y esta siendo alineado visualmente con el estilo institucional tipo SOE.
-- El frontend React ya permite leer QR reales con la camara del computador para dos flujos:
-  - cargar `qr_uid` en el primer registro del estudiante
-  - registrar automaticamente `ENTRADA` o `SALIDA` en movimientos usando el mismo QR
-- La interfaz actual estable para operacion diaria sigue siendo la de `backend/public`; el React se trabaja en paralelo hasta completar la migracion visual y funcional.
-- La base ya soporta auditoria de responsables para estudiantes y movimientos; los registros nuevos o editados despues de correr `ensure-audit-columns.js` ya pueden mostrar `Creado por`, `Actualizado por` y `Responsable`.
+### Visitantes
+Módulo separado del flujo de estudiantes.
 
-## Estado del frontend React
-Objetivo: construir una version moderna del portal sin romper la interfaz operativa actual.
+Permite:
+- registrar visitante por documento
+- registrar entrada/salida
+- salida rápida por placa
+- ver visitantes dentro del campus
+- ver histórico de visitantes
+- ver perfiles registrados
 
-### Ya corregido
-- sesion con `sessionStorage`
-- recuperacion de sesion al recargar
-- timeout por inactividad de 15 minutos
-- acceso por rol alineado con backend
-- busqueda de estudiantes por documento o placa
-- edicion de estudiantes usando `PUT /estudiantes/documento/:documento`
-- modulo `ADMIN` desacoplado de endpoints no estables
-- branding `SIU` y primera alineacion visual con estilo institucional
-- lectura QR por camara del computador con `html5-qrcode`
-- registro automatico de entrada/salida desde escaneo real en la pantalla de movimientos
-- ajustes visuales y textuales en `Login`, `Dashboard`, `Estudiantes` y `Movimientos`
-- placeholders mas claros para acceso, busqueda y formularios
-- mejor consistencia en botones secundarios, estados vacios y mensajes de estado
-- build validado con `npm run build`
+Rutas:
+- `POST /visitantes/registrar`
+- `GET /visitantes`
+- `GET /visitantes/movimientos`
+- `GET /visitantes/dentro-campus`
+- `GET /visitantes/documento/:documento`
 
-### Aun en trabajo
-- sidebar y layout mas cercanos al SOE
-- tablas, cards y jerarquia visual del portal
-- dashboard con lenguaje visual academico
-- homologacion visual total frente a la interfaz de `backend/public`
+### Administración
+Permite:
+- crear usuarios
+- cambiar contraseña de usuarios
+- desactivar/reactivar usuarios
+- desactivar/reactivar estudiantes
+- registrar salida previa antes de desactivar estudiantes si siguen dentro
+- revisar estudiantes del sistema
+- revisar usuarios del sistema
 
-### Lectura QR en React
-Objetivo: permitir operacion real mientras el hardware `ESP32-CAM` sigue pendiente.
+Importante:
+- el borrado es lógico (`soft delete`)
+- se conserva historial y auditoría
+- `admin` principal no debe desactivarse
 
-Flujo disponible:
-1. En `frontend/src/pages/Estudiantes.jsx`, el boton de camara permite escanear un QR real y llenar `qr_uid`.
-2. Al guardar el formulario, ese `qr_uid` queda persistido en base de datos como identificador del estudiante.
-3. En `frontend/src/pages/Movimientos.jsx`, el boton de camara detecta el mismo QR y envia el valor a `POST /movimientos/registrar`.
-4. El backend decide automaticamente si corresponde `ENTRADA` o `SALIDA` segun el ultimo movimiento registrado.
+Rutas principales:
+- `GET /admin/usuarios`
+- `POST /admin/usuarios`
+- `PUT /admin/usuarios/:id`
+- `DELETE /admin/usuarios/:id`
+- `PATCH /admin/usuarios/:id/reactivar`
+- `GET /admin/estudiantes`
+- `GET /admin/estudiantes/documento/:documento`
+- `PUT /admin/estudiantes/:id`
+- `DELETE /admin/estudiantes/:id`
+- `PATCH /admin/estudiantes/:id/reactivar`
+- `GET /admin/estudiantes/documento/:documento/estado-desactivacion`
+- `POST /admin/estudiantes/documento/:documento/registrar-salida`
 
-Notas:
-- si el QR contiene una URL completa, el backend extrae el ultimo segmento como `qr_uid`
-- la camara del navegador requiere permisos del dispositivo
-- para desarrollo local, mantener backend y React corriendo al tiempo
+### Admisiones / Solicitudes de inscripción
+Flujo nuevo para migración y autocarga controlada.
 
-### Pantallas React revisadas recientemente
-- `frontend/src/pages/Login.jsx`
-- `frontend/src/pages/Dashboard.jsx`
-- `frontend/src/pages/Estudiantes.jsx`
-- `frontend/src/pages/Movimientos.jsx`
-- `frontend/src/styles.css`
+Permite:
+- formulario público de inscripción
+- adjuntar QR y tarjetas de propiedad
+- aprobar o rechazar desde administración
+- enviar correos por SMTP
+- expirar solicitudes automáticamente a las 48 horas
 
-Cambios aplicados:
-- revision de textos visibles, placeholders y mensajes cortos
-- mejora de claridad en formularios de acceso, estudiantes y movimientos
-- mejor lectura visual de mensajes informativos y estados vacios
-- ajustes pequenos de espaciado, hover y consistencia en botones secundarios
-- mejor respiracion visual en tarjetas y paneles en pantallas pequenas
+Rutas:
+- `POST /solicitudes-inscripcion`
+- `GET /solicitudes-inscripcion`
+- `GET /solicitudes-inscripcion/:id`
+- `PATCH /solicitudes-inscripcion/:id/aprobar`
+- `PATCH /solicitudes-inscripcion/:id/rechazar`
 
-### Regla importante
-- no integrar `frontend/dist` al repositorio
-- no reemplazar `backend/public` hasta que el flujo React quede validado
-- cualquier cambio en React debe compilar con `npm run build`
+## Reglas de negocio importantes
+### Estudiantes
+- cédula: 8 a 10 dígitos numéricos
+- celular: exactamente 10 números
+- QR: formato institucional CIDE
+- placa: formato válido colombiano
+- máximo 2 motos por estudiante
 
-## Flujo de trabajo frontend para 4 personas
-Objetivo: permitir que el equipo avance en frontend mientras termina pendientes de backend, sin pisarse ni romper contratos ya usados por la interfaz.
+### Novedad de moto
+Si el estudiante llega con una moto no registrada:
+- no se agrega automáticamente al perfil
+- se registra como novedad de acceso
+- requiere validación manual
+- guarda:
+  - placa observada
+  - motivo
+  - tipo de soporte (`TARJETA_PROPIEDAD` o `RUNT`)
+  - responsable
 
-### Regla general antes de empezar
-1. Trabajar siempre desde `develop`.
-2. No cambiar por cuenta propia nombres de endpoints, campos JSON o roles sin avisar al equipo.
-3. Cada persona debe tocar un bloque distinto de la interfaz para evitar conflictos.
-4. Antes de subir cambios, validar al menos:
-   - `node --check backend/public/app.js`
-   - abrir `http://localhost:3000/`
-   - probar el flujo que modificaron
+### Roles
+- `ADMIN`: control completo
+- `GUARDA`: operación diaria y edición parcial de estudiante
+- `CONSULTA`: solo lectura
 
-### Reparto de trabajo sugerido
-#### Cristian
-Responsabilidad: tablas operativas y visualizacion de datos.
+### Soft delete
+No se usa borrado físico para usuarios ni estudiantes.
 
-Tareas:
-- mejorar tabla de usuarios
-- mejorar tabla de estudiantes
-- mejorar tabla de historial de movimientos
-- agregar estados vacios mas claros
-- agregar scroll horizontal y lectura mas comoda en movil
+Se desactivan para:
+- conservar movimientos
+- conservar responsables
+- conservar auditoría
 
-Archivos principales:
-- `backend/public/index.html`
-- `backend/public/styles.css`
-- `backend/public/app.js`
+## Correos y expiración
+El sistema ya puede enviar correos para:
+- recepción de solicitud
+- aceptación
+- rechazo
+- expiración
 
-#### Kevin
-Responsabilidad: experiencia por rol y seguridad visual.
-
-Tareas:
-- pulir experiencia `ADMIN`, `GUARDA` y `CONSULTA`
-- revisar que botones y paneles visibles coincidan con permisos reales
-- mejorar mensajes de permiso insuficiente
-- reforzar estados de sesion, token y resumen operativo
-
-Archivos principales:
-- `backend/public/app.js`
-- `backend/public/styles.css`
-
-#### Maicol
-Responsabilidad: mejoras visuales sencillas y contenido estatico.
-
-Tareas:
-- revisar textos visibles en botones, titulos y ayudas
-- corregir ortografia o mensajes poco claros
-- mejorar placeholders y textos guia del formulario
-- apoyar estilos simples:
-  - espaciados
-  - tamanos de letra
-  - colores de badges y tarjetas
-- probar en pantalla que no se vea desordenado en desktop y movil
-
-Nota:
-- Maicol no debe tocar logica compleja de fetch, roles o renderizado principal.
-- Su enfoque debe ser visual, textual y de prueba manual.
-
-Archivos principales:
-- `backend/public/index.html`
-- `backend/public/styles.css`
-
-#### Tu
-Responsabilidad: pantallas de login/perfil y monitoreo/dashboard, ademas de integracion final.
-
-Tareas:
-- ser dueno de la pantalla de login y perfil
-- mejorar la experiencia de inicio de sesion
-- mejorar visualizacion de sesion activa, token y rol
-- ser dueno de la pantalla de monitoreo
-- mejorar dashboard de operacion
-- mejorar bloque de `Dentro del campus`
-- mejorar bloque de historial de movimientos
-- conectar mejor resumen operativo, metricas y actividad reciente
-- revisar PRs o cambios de cada companero
-- integrar el dashboard con los bloques nuevos
-- validar consistencia visual general
-- revisar que frontend siga alineado con backend
-- ejecutar pruebas antes de aprobar merge interno
-- decidir cuando `develop` esta lista para pasar a `main`
-
-Pantallas asignadas:
-- `Login / Perfil / Estado de sesion`
-- `Monitoreo y Dashboard`
-
-Archivos principales:
-- `backend/public/index.html`
-- `backend/public/styles.css`
-- `backend/public/app.js`
-- `README.md` cuando cambie el flujo
-
-### Que debe hacer cada uno apenas termine backend
-#### Cristian
-1. Tomar tablas operativas y estados vacios.
-2. Mejorar visualizacion de usuarios, estudiantes y movimientos.
-
-#### Kevin
-1. Tomar restricciones por rol en la interfaz.
-2. Revisar experiencia de `ADMIN`, `GUARDA` y `CONSULTA`.
-
-#### Maicol
-1. Tomar ajustes de textos, placeholders y estilos simples.
-2. Hacer pruebas manuales de visualizacion y orden.
-
-#### Tu
-1. Tomar `Login / Perfil / Estado de sesion`.
-2. Tomar `Monitoreo y Dashboard`.
-3. Mejorar metricas, resumen operativo, dentro del campus e historial.
-4. Coordinar integracion.
-5. Validar que nada rompa login, dashboard, busqueda guiada e historial.
-
-### Orden recomendado de ejecucion
-1. Primero terminar pendientes de backend.
-2. Luego cada integrante toma su bloque frontend.
-3. Despues se integran cambios en `develop`.
-4. Se prueban flujos reales:
-   - login
-   - usuarios
-   - estudiantes
-   - movimientos
-   - dentro del campus
-   - historial
-5. Solo despues de esa validacion se considera merge a `main`.
-
-## Forma de trabajo recomendada desde ahora
-Para evitar desorden en frontend, seguir siempre este ciclo:
-
-1. Elegir un solo bloque por jornada:
-   - `login`
-   - `sidebar/layout`
-   - `dashboard`
-   - `estudiantes`
-   - `movimientos`
-   - `admin`
-2. No mezclar en el mismo cambio:
-   - ajustes visuales
-   - cambios funcionales
-   - integracion general
-3. Antes de editar, dejar claro:
-   - que pantalla se va a tocar
-   - que archivos se van a tocar
-   - que resultado se espera
-4. Antes de subir cambios de React validar:
-```bash
-cd frontend
-npm run build
-```
-5. Antes de subir cambios de `backend/public` validar:
-```bash
-cd backend
-node --check public/app.js
-```
-6. Probar siempre en navegador el flujo tocado antes de push.
-
-## Bloques sugeridos para continuar el React
-1. `Login y sesion`
-2. `Sidebar y layout institucional`
-3. `Dashboard`
-4. `Estudiantes`
-5. `Movimientos`
-6. `Admin`
-
-Cada bloque debe cerrar con:
-- revision visual
-- build exitoso
-- prueba manual
-- commit limpio
-
-### Definition of done para frontend
-Un bloque frontend se considera listo cuando:
-- se ve bien en la pantalla
-- no rompe otros modulos
-- respeta roles
-- muestra mensajes claros
-- funciona con datos reales del backend
-- fue probado manualmente por quien lo hizo
-
-## Pruebas
-Comandos genericos:
-```bash
-npm test
-npm run test:integration
-npm run test:all
-```
-
-Comandos recomendados en PowerShell:
+Comando manual de expiración:
 ```powershell
 cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
-$env:DB_PASSWORD="tu_password_real"
-$env:JWT_SECRET="dev-secret"
+npm run solicitudes:expire
+```
+
+Además, si `SOLICITUDES_EXPIRE_AUTORUN=true`, el backend procesa expiraciones automáticamente al arrancar, según el intervalo configurado.
+
+## Pruebas
+### Backend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\backend
 npm test
 npm run test:integration
 npm run test:all
+node tests\solicitudes-inscripcion.controller.test.js
+node tests\visitantes.controller.test.js
 ```
 
-`test:integration` requiere PostgreSQL disponible, `DB_PASSWORD` y `JWT_SECRET` configurados.
+### Frontend
+```powershell
+cd C:\Users\Usuario\Desktop\CONTROL-DE-ACCESO-CIDE\frontend
+npm test
+npm run build
+```
 
-## Script de prueba manual
-- PowerShell: `./test-endpoints.ps1`
-- Bash: `bash test-endpoints.sh`
+## Demo mínima recomendada
+1. levantar backend
+2. levantar frontend
+3. iniciar sesión como `admin`
+4. registrar un estudiante
+5. registrar entrada/salida por QR
+6. registrar un movimiento por cédula y seleccionar moto
+7. revisar `Dentro del campus`
+8. crear una solicitud en `/inscripcion`
+9. aprobar o rechazar desde `Administración` → `Admisiones`
+10. revisar correo recibido
+11. registrar un visitante y probar entrada/salida
 
-## Demo minima para cualquier companero
-1. Copiar `.env.example` a `.env`
-2. Ejecutar `npm install`
-3. Crear la base y correr `database/schema.sql`
-4. Ejecutar `node database/seed.js`
-5. Ejecutar `npm start`
-6. Abrir `http://localhost:3000/`
-7. Ingresar con `admin / Admin123!`
-
-## Prueba visual desde la pantalla
-1. Iniciar sesion como `admin`
-2. Pulsar `Ver /auth/me` para confirmar token
-3. Buscar usuarios por `username`, autocompletar y luego crear, editar o eliminar
-4. Registrar un estudiante desde `Registrar estudiante`
-   - `placa` debe tener formato `ABC12D` (3 letras, 2 numeros y 1 letra final)
-5. Buscar estudiantes por `documento` o `placa`, autocompletar y luego editar o eliminar
-   - al editar o eliminar, aparece un popup de confirmacion
-6. Buscarlo por documento en `Verificar estudiante`
-7. Registrar movimiento por QR
-8. Verificarlo en `Ver dentro del campus`
+## Notas operativas
+- React es hoy el frente principal del sistema
+- `backend/public` queda solo como apoyo histórico o respaldo técnico
+- no integrar `frontend/dist` al repositorio
+- cualquier cambio de frontend debe pasar por:
+  - `npm test`
+  - `npm run build`
+- cualquier cambio sensible de backend debe validar pruebas y migración

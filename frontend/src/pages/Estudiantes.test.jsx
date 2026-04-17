@@ -43,8 +43,8 @@ describe("Estudiantes", () => {
     });
     fireEvent.change(screen.getByLabelText(/^nombre$/i), { target: { value: "Estudiante Demo" } });
     fireEvent.change(screen.getByLabelText(/celular/i), { target: { value: "3001234" } });
-    fireEvent.change(screen.getByLabelText(/placa/i), { target: { value: "ABC12D" } });
-    fireEvent.change(screen.getByLabelText(/color/i), { target: { value: "Negro" } });
+    fireEvent.change(screen.getByLabelText(/moto principal/i), { target: { value: "ABC12D" } });
+    fireEvent.change(screen.getByLabelText(/^color$/i), { target: { value: "Negro" } });
 
     fireEvent.click(screen.getByRole("button", { name: /crear estudiante/i }));
 

@@ -16,15 +16,17 @@ function createRes() {
   };
 }
 
-function loadController({ usuariosModelMock, bcryptMock, estudiantesModelMock, poolMock }) {
+function loadController({ usuariosModelMock, bcryptMock, estudiantesModelMock, movimientosModelMock, poolMock }) {
   const usuariosModelPath = path.resolve(__dirname, "../models/usuarios.model.js");
   const estudiantesModelPath = path.resolve(__dirname, "../models/estudiantes.model.js");
+  const movimientosModelPath = path.resolve(__dirname, "../models/movimientos.model.js");
   const poolPath = path.resolve(__dirname, "../config/database.js");
   const bcryptPath = path.resolve(__dirname, "../node_modules/bcrypt/bcrypt.js");
   const controllerPath = path.resolve(__dirname, "../controllers/admin.controller.js");
 
   delete require.cache[usuariosModelPath];
   delete require.cache[estudiantesModelPath];
+  delete require.cache[movimientosModelPath];
   delete require.cache[poolPath];
   delete require.cache[bcryptPath];
   delete require.cache[controllerPath];
@@ -41,6 +43,13 @@ function loadController({ usuariosModelMock, bcryptMock, estudiantesModelMock, p
     filename: estudiantesModelPath,
     loaded: true,
     exports: estudiantesModelMock || {},
+  };
+
+  require.cache[movimientosModelPath] = {
+    id: movimientosModelPath,
+    filename: movimientosModelPath,
+    loaded: true,
+    exports: movimientosModelMock || {},
   };
 
   require.cache[poolPath] = {
@@ -230,14 +239,16 @@ async function runTest(name, fn) {
   await runTest("eliminarUsuario retorna 404 si no existe", async () => {
     const { eliminarUsuario } = loadController({
       usuariosModelMock: {
+        findById: async () => ({ rows: [] }),
         deactivateUsuario: async () => ({ rows: [] }),
       },
       bcryptMock: {},
       estudiantesModelMock: {},
+      movimientosModelMock: {},
       poolMock: {},
     });
 
-    const req = { params: { id: "99" } };
+    const req = { user: { id: 1, username: "admin", role: "ADMIN" }, params: { id: "99" } };
     const res = createRes();
 
     await eliminarUsuario(req, res, () => {});
@@ -251,6 +262,7 @@ async function runTest(name, fn) {
     const { eliminarUsuarioPorUsername } = loadController({
       usuariosModelMock: {
         findByUsername: async () => ({ rows: [{ id: 9, username: "consulta", role: "CONSULTA" }] }),
+        findById: async (id) => ({ rows: [{ id, username: "consulta", role: "CONSULTA", is_active: true }] }),
         deactivateUsuario: async (id) => {
           deletedId = id;
           return { rows: [{ id, username: "consulta", role: "CONSULTA", is_active: false }] };
@@ -261,7 +273,7 @@ async function runTest(name, fn) {
       poolMock: {},
     });
 
-    const req = { params: { username: "consulta" } };
+    const req = { user: { id: 1, username: "admin", role: "ADMIN" }, params: { username: "consulta" } };
     const res = createRes();
 
     await eliminarUsuarioPorUsername(req, res, () => {});
@@ -292,6 +304,46 @@ async function runTest(name, fn) {
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.message, "Usuario reactivado");
     assert.equal(res.body.usuario.is_active, true);
+  });
+
+  await runTest("eliminarUsuario protege al admin principal", async () => {
+    const { eliminarUsuario } = loadController({
+      usuariosModelMock: {
+        findById: async () => ({ rows: [{ id: 1, username: "admin", role: "ADMIN", is_active: true }] }),
+      },
+      bcryptMock: {},
+      estudiantesModelMock: {},
+      movimientosModelMock: {},
+      poolMock: {},
+    });
+
+    const req = { user: { id: 2, username: "root2", role: "ADMIN" }, params: { id: "1" } };
+    const res = createRes();
+
+    await eliminarUsuario(req, res, () => {});
+
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(res.body, { error: "El admin principal no puede desactivarse" });
+  });
+
+  await runTest("eliminarUsuario impide auto-desactivación", async () => {
+    const { eliminarUsuario } = loadController({
+      usuariosModelMock: {
+        findById: async () => ({ rows: [{ id: 5, username: "admin2", role: "ADMIN", is_active: true }] }),
+      },
+      bcryptMock: {},
+      estudiantesModelMock: {},
+      movimientosModelMock: {},
+      poolMock: {},
+    });
+
+    const req = { user: { id: 5, username: "admin2", role: "ADMIN" }, params: { id: "5" } };
+    const res = createRes();
+
+    await eliminarUsuario(req, res, () => {});
+
+    assert.equal(res.statusCode, 403);
+    assert.deepEqual(res.body, { error: "No puedes desactivar tu propio usuario mientras la sesión está activa" });
   });
 
   await runTest("obtenerEstudiantePorPlaca retorna estudiante encontrado", async () => {
@@ -669,9 +721,15 @@ async function runTest(name, fn) {
       usuariosModelMock: {},
       bcryptMock: {},
       estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 5, documento: "123456", nombre: "Luis", placa: "ABC12D", vigencia: true }],
+        }),
         softDeleteById: async () => ({
           rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: false, is_deleted: true }],
         }),
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [{ tipo: "SALIDA" }] }),
       },
       poolMock: {
         connect: async () => client,
@@ -706,9 +764,15 @@ async function runTest(name, fn) {
         findByDocumento: async () => ({
           rows: [{ estudiante_id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: true }],
         }),
+        findById: async () => ({
+          rows: [{ estudiante_id: 5, documento: "123456", nombre: "Luis", placa: "ABC12D", vigencia: true }],
+        }),
         softDeleteById: async () => ({
           rows: [{ id: 5, documento: "123456", qr_uid: "QR001", nombre: "Luis", carrera: "Ing", vigencia: false, is_deleted: true }],
         }),
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [{ tipo: "SALIDA" }] }),
       },
       poolMock: {
         connect: async () => client,
@@ -755,6 +819,87 @@ async function runTest(name, fn) {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.message, "Estudiante reactivado");
+    assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
+  });
+
+  await runTest("eliminarEstudiante rechaza desactivar si sigue dentro del campus", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+
+    const { eliminarEstudiante } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findById: async () => ({
+          rows: [{ estudiante_id: 5, documento: "123456", nombre: "Luis", placa: "ABC12D", vigencia: true }],
+        }),
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [{ tipo: "ENTRADA" }] }),
+      },
+      poolMock: {
+        connect: async () => client,
+      },
+    });
+
+    const req = { params: { id: "5" } };
+    const res = createRes();
+
+    await eliminarEstudiante(req, res, () => {});
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.code, "STUDENT_INSIDE_CAMPUS");
+    assert.ok(queries.some((sql) => /ROLLBACK/.test(sql)), "Debe revertir transaccion");
+  });
+
+  await runTest("registrarSalidaEstudianteAdmin registra salida y deja listo para desactivar", async () => {
+    const queries = [];
+    const client = {
+      query: async (sql) => {
+        queries.push(sql);
+        return { rows: [] };
+      },
+      release() {},
+    };
+    let actorAudit = null;
+
+    const { registrarSalidaEstudianteAdmin } = loadController({
+      usuariosModelMock: {},
+      bcryptMock: {},
+      estudiantesModelMock: {
+        findByDocumento: async () => ({
+          rows: [{ estudiante_id: 5, documento: "123456", nombre: "Luis", placa: "ABC12D", vigencia: true }],
+        }),
+      },
+      movimientosModelMock: {
+        getLastByEstudianteId: async () => ({ rows: [{ tipo: "ENTRADA" }] }),
+        createMovimiento: async (_client, estudianteId, tipo, audit) => {
+          actorAudit = { estudianteId, tipo, audit };
+          return { rows: [{ id: 99, tipo }] };
+        },
+      },
+      poolMock: {
+        connect: async () => client,
+      },
+    });
+
+    const req = {
+      user: { id: 7, username: "admin", role: "ADMIN" },
+      params: { documento: "123456" },
+    };
+    const res = createRes();
+
+    await registrarSalidaEstudianteAdmin(req, res, () => {});
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.message, "Salida registrada correctamente. Ya puedes desactivar al estudiante.");
+    assert.deepEqual(actorAudit, { estudianteId: 5, tipo: "SALIDA", audit: { actorUserId: 7 } });
     assert.ok(queries.some((sql) => /COMMIT/.test(sql)), "Debe confirmar transaccion");
   });
 

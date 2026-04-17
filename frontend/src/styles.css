@@ -598,6 +598,49 @@ input:-webkit-autofill:active {
   color: var(--ink-soft);
 }
 
+.movement-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.movement-choice-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.movement-choice-card input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+}
+
+.movement-choice-card.active {
+  border-color: #9bc8bc;
+  background: linear-gradient(180deg, #f1fbf7 0%, #ffffff 100%);
+  box-shadow: 0 0 0 3px rgba(57, 195, 187, 0.12);
+}
+
+.movement-choice-title {
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.movement-modal-form {
+  margin-bottom: 18px;
+}
+
+.movement-modal-checkbox {
+  grid-column: 1 / -1;
+}
+
 .dashboard-callout {
   display: grid;
   gap: 8px;
@@ -789,6 +832,29 @@ input:-webkit-autofill:active {
   background: linear-gradient(180deg, rgba(220, 235, 251, 0.72) 0%, rgba(246, 248, 251, 0.92) 100%);
   color: var(--ink);
   line-height: 1.6;
+}
+
+.request-block {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fbfcfd 0%, #f5f8fa 100%);
+}
+
+.request-block__head {
+  display: grid;
+  gap: 4px;
+}
+
+.request-block__head strong {
+  color: var(--accent-strong);
+  font-size: 1rem;
+}
+
+.request-block__full {
+  grid-column: 1 / -1;
 }
 
 .modal {
@@ -1008,6 +1074,10 @@ input:-webkit-autofill:active {
   min-width: 1360px;
 }
 
+.request-table {
+  min-width: 1580px;
+}
+
 .data-table {
   width: 100%;
   min-width: 980px;
@@ -1116,6 +1186,12 @@ input:-webkit-autofill:active {
   overflow: hidden;
 }
 
+.auth-shell--form {
+  align-items: start;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
 .auth-backdrop {
   position: absolute;
   inset: 0;
@@ -1162,6 +1238,10 @@ input:-webkit-autofill:active {
   background: rgba(255, 255, 252, 0.99);
   box-shadow: 0 32px 78px rgba(13, 27, 20, 0.26);
   text-align: left;
+}
+
+.auth-card--wide {
+  width: min(100%, 960px);
 }
 
 .auth-card--loading {

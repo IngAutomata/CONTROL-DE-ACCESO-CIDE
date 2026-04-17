@@ -1,25 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import QrScanner from "../components/QrScanner.jsx";
+import { CAREERS } from "../constants/careers.js";
 
 const PLATE_REGEX = /^[A-Z]{3}\d{2}[A-Z]$/;
 const DOCUMENT_REGEX = /^\d{8,10}$/;
 const CELULAR_REGEX = /^\d{10}$/;
 const CIDE_QR_REGEX = /^https:\/\/soe\.cide\.edu\.co\/verificar-estudiante\/[A-Za-z0-9]{1,8}$/;
-const CAREERS = [
-  "Tecnico Profesional en Mantenimiento de Sistemas Mecatronicos Industriales - 108538",
-  "Tecnico Profesional Procesos de Redes y Comunicaciones - 109639",
-  "Tecnico Profesional en Instalaciones Electricas para Sistemas Renovables - 108879",
-  "Tecnologo Electrico en Generacion y Gestion Eficiente de Energias Renovables - 108524",
-  "Tecnologo en Gestion de Sistemas Mecatronicos Industriales - 108525",
-  "Tecnologia en Gestion de Seguridad y Salud en el Trabajo - 108794",
-  "Tecnologia en Gestion de Sistemas Informaticos - 110400",
-  "Ingenieria Electrica - 108667",
-  "Ingenieria Mecatronica - 108787",
-  "Ingenieria Industrial - 108795",
-  "Ingenieria de Sistemas - 110399",
-  "Administrativos / Docente",
-];
 
 const initialForm = {
   documento: "",
@@ -29,6 +16,8 @@ const initialForm = {
   celular: "",
   placa: "",
   color: "",
+  placa_secundaria: "",
+  color_secundaria: "",
   vigencia: true,
 };
 
@@ -82,6 +71,8 @@ function mapStudentToForm(student) {
     celular: normalizeCelular(student.celular || ""),
     placa: normalizePlate(student.placa || ""),
     color: student.color || "",
+    placa_secundaria: normalizePlate(student.placa_secundaria || ""),
+    color_secundaria: student.color_secundaria || "",
     vigencia: Boolean(student.vigencia),
   };
 }
@@ -214,6 +205,21 @@ export default function Estudiantes() {
       return;
     }
 
+    if ((form.placa_secundaria && !form.color_secundaria) || (!form.placa_secundaria && form.color_secundaria)) {
+      setError("La moto secundaria requiere placa y color.");
+      return;
+    }
+
+    if (form.placa_secundaria && !PLATE_REGEX.test(form.placa_secundaria)) {
+      setError("La placa secundaria debe tener formato ABC12D.");
+      return;
+    }
+
+    if (form.placa_secundaria && form.placa_secundaria === form.placa) {
+      setError("La moto secundaria no puede repetir la placa principal.");
+      return;
+    }
+
     try {
       const isEditing = currentMode === "editar" && originalDocumento;
       if (isEditing) {
@@ -227,7 +233,9 @@ export default function Estudiantes() {
             carrera: form.carrera,
             celular: form.celular || "-",
             placa: form.placa,
+            placa_secundaria: form.placa_secundaria || "-",
             color: form.color,
+            color_secundaria: form.color_secundaria || "-",
             vigencia: form.vigencia ? "Activa" : "Inactiva",
           },
         });
@@ -286,7 +294,7 @@ export default function Estudiantes() {
   function handleChange(field, value) {
     setForm((current) => ({
       ...current,
-      [field]: field === "placa"
+      [field]: field === "placa" || field === "placa_secundaria"
         ? normalizePlate(value)
         : field === "documento"
           ? normalizeDocumento(value)
@@ -416,8 +424,12 @@ export default function Estudiantes() {
                       <dd>{scannedStudent.qr_uid || "-"}</dd>
                     </div>
                     <div>
-                      <dt>Placa</dt>
+                      <dt>Moto principal</dt>
                       <dd>{scannedStudent.placa || "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>Moto secundaria</dt>
+                      <dd>{scannedStudent.placa_secundaria || "-"}</dd>
                     </div>
                     <div>
                       <dt>Celular</dt>
@@ -527,7 +539,7 @@ export default function Estudiantes() {
               </label>
 
               <label>
-                Placa
+                Moto principal
                 <input
                   type="text"
                   value={form.placa}
@@ -545,6 +557,28 @@ export default function Estudiantes() {
                   value={form.color}
                   onChange={(event) => handleChange("color", event.target.value)}
                   required
+                  disabled={!canManageStudents}
+                />
+              </label>
+
+              <label>
+                Moto secundaria
+                <input
+                  type="text"
+                  value={form.placa_secundaria}
+                  onChange={(event) => handleChange("placa_secundaria", event.target.value)}
+                  placeholder="ABC12D"
+                  disabled={!canManageStudents}
+                />
+              </label>
+
+              <label>
+                Color moto secundaria
+                <input
+                  type="text"
+                  value={form.color_secundaria}
+                  onChange={(event) => handleChange("color_secundaria", event.target.value)}
+                  placeholder="Color opcional"
                   disabled={!canManageStudents}
                 />
               </label>
@@ -604,7 +638,8 @@ export default function Estudiantes() {
                     <th>Documento</th>
                     <th>Nombre</th>
                     <th>QR</th>
-                    <th>Placa</th>
+                    <th>Moto principal</th>
+                    <th>Moto secundaria</th>
                     <th>Celular</th>
                     <th>Vigencia</th>
                     <th>Creado por</th>
@@ -618,6 +653,7 @@ export default function Estudiantes() {
                       <td>{student.nombre}</td>
                       <td>{student.qr_uid}</td>
                       <td>{student.placa || "-"}</td>
+                      <td>{student.placa_secundaria || "-"}</td>
                       <td>{student.celular || "-"}</td>
                       <td>{student.vigencia ? "Vigente" : "No vigente"}</td>
                       <td>{student.created_by_username || "Sin responsable"}</td>
@@ -672,3 +708,4 @@ export default function Estudiantes() {
     </section>
   );
 }
+

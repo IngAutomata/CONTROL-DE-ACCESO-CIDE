@@ -28,7 +28,9 @@ function normalizeRole(roleValue) {
 }
 
 async function login(req, res) {
-  const { username, password } = req.body || {};
+  const rawUsername = typeof req.body?.username === "string" ? req.body.username : "";
+  const username = rawUsername.trim().toLowerCase();
+  const { password } = req.body || {};
 
   if (!username || !password) {
     return badRequest(res, "username y password son requeridos");

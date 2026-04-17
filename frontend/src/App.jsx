@@ -6,6 +6,7 @@ import Login from "./pages/Login.jsx";
 import Movimientos from "./pages/Movimientos.jsx";
 import Admin from "./pages/Admin.jsx";
 import Estudiantes from "./pages/Estudiantes.jsx";
+import SolicitudInscripcion from "./pages/SolicitudInscripcion.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <Routes>
+        <Route path="/inscripcion" element={<SolicitudInscripcion />} />
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -57,6 +59,8 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
             <Route path="/admin" element={<Admin />} />
           </Route>
+
+          <Route path="/inscripcion" element={<SolicitudInscripcion />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

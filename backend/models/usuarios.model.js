@@ -15,7 +15,7 @@ async function findByUsername(username) {
     `
     SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
     FROM usuarios
-    WHERE username = $1 AND is_active = TRUE
+    WHERE LOWER(username) = LOWER($1) AND is_active = TRUE
     LIMIT 1
     `,
     [username]
@@ -27,7 +27,7 @@ async function findByUsernameAnyStatus(username) {
     `
     SELECT id, username, role, is_active, deactivated_at, created_at, updated_at
     FROM usuarios
-    WHERE username = $1
+    WHERE LOWER(username) = LOWER($1)
     LIMIT 1
     `,
     [username]

@@ -9,7 +9,8 @@
     "test:general": "node tests/general.test.js",
     "test": "node tests/comprehensive.test.js && node tests/general.test.js && node tests/form-reset-fix.test.js && node tests/index-html.test.js && node tests/auth.controller.test.js && node tests/admin.controller.test.js && node tests/roles.middleware.test.js && node tests/movimientos.controller.test.js && node tests/estudiantes.controller.test.js",
     "test:integration": "node tests/movimientos.dentro-campus.integration.test.js",
-    "test:all": "npm test && npm run test:integration"
+    "test:all": "npm test && npm run test:integration",
+    "solicitudes:expire": "node scripts/expire-solicitudes.js"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^8.0.5",
     "pg": "^8.19.0"
   }
 }

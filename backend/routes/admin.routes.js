@@ -18,8 +18,10 @@ const {
   actualizarEstudiantePorDocumento,
   eliminarEstudiante,
   eliminarEstudiantePorDocumento,
+  obtenerEstadoDesactivacionEstudiante,
   reactivarEstudiante,
   reactivarEstudiantePorDocumento,
+  registrarSalidaEstudianteAdmin,
 } = require("../controllers/admin.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const { requireRole } = require("../middleware/requireRole");
@@ -49,6 +51,8 @@ router.delete("/estudiantes/:id", eliminarEstudiante);
 router.patch("/estudiantes/:id/reactivar", reactivarEstudiante);
 router.put("/estudiantes/documento/:documento", actualizarEstudiantePorDocumento);
 router.delete("/estudiantes/documento/:documento", eliminarEstudiantePorDocumento);
+router.get("/estudiantes/documento/:documento/estado-desactivacion", obtenerEstadoDesactivacionEstudiante);
 router.patch("/estudiantes/documento/:documento/reactivar", reactivarEstudiantePorDocumento);
+router.post("/estudiantes/documento/:documento/registrar-salida", registrarSalidaEstudianteAdmin);
 
 module.exports = router;

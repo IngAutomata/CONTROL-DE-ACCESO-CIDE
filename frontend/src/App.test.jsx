@@ -38,6 +38,11 @@ vi.mock("./pages/Estudiantes.jsx", () => ({
     return <div>Estudiantes mock</div>;
   },
 }));
+vi.mock("./pages/SolicitudInscripcion.jsx", () => ({
+  default: function SolicitudInscripcionMock() {
+    return <div>Solicitud inscripción mock</div>;
+  },
+}));
 
 describe("App", () => {
   beforeEach(() => {
@@ -76,6 +81,23 @@ describe("App", () => {
     );
 
     expect(screen.getByText("Login mock")).toBeInTheDocument();
+  });
+
+  it("permite abrir el formulario público de inscripción sin autenticación", () => {
+    authMock.useAuth.mockReturnValue({
+      isAuthenticated: false,
+      ready: true,
+      role: null,
+      user: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/inscripcion"]}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Solicitud inscripción mock")).toBeInTheDocument();
   });
 
   it("muestra el layout autenticado con banner y navegación", () => {
